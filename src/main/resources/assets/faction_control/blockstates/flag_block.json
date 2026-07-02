@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "faction_control:block/flag_block"
+    }
+  }
+}

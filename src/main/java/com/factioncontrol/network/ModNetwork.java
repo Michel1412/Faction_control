@@ -1,0 +1,43 @@
+package com.factioncontrol.network;
+
+import com.factioncontrol.FactionControlMod;
+import com.factioncontrol.network.packet.S2CPlayerFactionSyncPacket;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraftforge.network.NetworkRegistry;
+import net.minecraftforge.network.PacketDistributor;
+import net.minecraftforge.network.simple.SimpleChannel;
+
+public final class ModNetwork {
+    private static final String PROTOCOL = "1";
+
+    public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
+            new ResourceLocation(FactionControlMod.MODID, "main"),
+            () -> PROTOCOL,
+            PROTOCOL::equals,
+            PROTOCOL::equals
+    );
+
+    private static int packetId;
+
+    private ModNetwork() {
+    }
+
+    public static void register() {
+        CHANNEL.registerMessage(
+                nextId(),
+                S2CPlayerFactionSyncPacket.class,
+                S2CPlayerFactionSyncPacket::encode,
+                S2CPlayerFactionSyncPacket::decode,
+                S2CPlayerFactionSyncPacket::handle
+        );
+    }
+
+    public static void sendPlayerFactionSync(ServerPlayer player) {
+        CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), S2CPlayerFactionSyncPacket.fromServer(player));
+    }
+
+    private static int nextId() {
+        return packetId++;
+    }
+}
