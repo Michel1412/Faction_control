@@ -9,7 +9,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Generates 16x16 pixel-art item textures for Faction Control.
+ * Generates 16x16 pixel-art item textures for Faction Control (dev fallback only).
+ * Official item PNGs live in {@code src/main/resources/assets/faction_control/textures/item/}.
  * Run: {@code ./gradlew generatePlaceholderTextures}
  */
 public final class TexturePlaceholderGenerator {

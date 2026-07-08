@@ -12,8 +12,6 @@ import net.minecraft.world.item.CreativeModeTab;
 
 import net.minecraft.world.item.ItemStack;
 
-import net.minecraft.world.item.Items;
-
 import net.minecraftforge.registries.DeferredRegister;
 
 import net.minecraftforge.registries.RegistryObject;
@@ -36,7 +34,7 @@ public final class ModCreativeTabs {
 
                     .title(Component.literal("Faction Control"))
 
-                    .icon(() -> new ItemStack(Items.RED_BANNER))
+                    .icon(() -> new ItemStack(ModItems.FLAG_BLOCK.get()))
 
                     .displayItems((parameters, output) -> {
 
