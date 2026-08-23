@@ -1,0 +1,7 @@
+{
+  "block.faction_control.flag_block": "Faction Flag",
+  "item.faction_control.flag_block": "Faction Flag",
+  "item.faction_control.faction_upgrade_item": "Faction Upgrade",
+  "item.faction_control.raid_controller_item": "Raid Controller",
+  "itemGroup.faction_control.faction_control": "Faction Control"
+}

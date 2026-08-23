@@ -11,7 +11,7 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * In-memory faction record stored in {@link com.factioncontrol.config.FactionConfigManager#factionsMap}.
+ * In-memory faction record stored by {@link com.factioncontrol.config.FactionConfigManager}.
  */
 public class FactionObject {
     private final UUID factionId;

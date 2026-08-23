@@ -1,9 +1,11 @@
 # Faction Control — Referência de Comandos
 
-Versão do mod: **1.3.1**  
+Versão do mod: **1.4.1**  
 Prefixo base: `/faction`
 
 Todos os dados de facções, chunks claimados, bandeiras e safezones ficam em `config/faction_control.json`.
+
+Gate de criação: por padrão o player **não** pode criar facção. LuckPerms, quest ou staff liberam com o comando ou o nó abaixo.
 
 ---
 
@@ -15,10 +17,13 @@ Todos os dados de facções, chunks claimados, bandeiras e safezones ficam em `c
 | **Membro** | Player listado em `members` de uma facção | Padrão (0) |
 | **Oficial** | Player definido em `official_uuid` da facção | Padrão (0) |
 | **Administrador (OP)** | Operador do servidor | Nível **2+** (`/op`) |
+| **Trusted (LuckPerms)** | Helper / quest / console | Nível **1** |
+
+Nível 1 serve para LuckPerms gerir helpers sem dar OP 2. Staff 2+ bypassa o gate de criação.
 
 ### Modo Admin vs Modo Jogador (OP)
 
-OPs têm dois modos, persistidos no NBT do personagem:
+OPs têm dois modos, persistidos no personagem (`faction_control.play_as_player` — [1.20.1](implementations/1.20.1/player-data.md)):
 
 | Modo | Comando | Comportamento |
 |------|---------|---------------|
@@ -54,7 +59,7 @@ Envia um convite para o jogador entrar na facção. O convidado recebe uma mensa
 | | |
 |---|---|
 | **Pré-requisitos** | Alvo online; alvo sem facção; não convidar a si mesmo |
-| **Validade** | Convite expira em **5 minutos** (não persiste após restart do servidor) |
+| **Validade** | Convite expira em **5 minutos**; persiste em `pending_invites` no JSON (sobrevive restart) |
 | **Efeito** | Alvo pode usar `/faction accept` ou clicar **[ACEITAR]** no chat |
 
 ---
@@ -79,7 +84,7 @@ Aceita um convite pendente e entra na facção que convidou.
 | Item | Quem usa | Função |
 |------|----------|--------|
 | `faction_upgrade_item` | **Oficial** | Shift+Clique vincula chunk; clique na bandeira expande território (chunk adjacente) |
-| `raid_controller_item` | Qualquer invasor | Hack wireless 60s dentro de território inimigo → estado `RAIDED` |
+| `raid_controller_item` | Oficial da facção | Hack wireless 60s dentro de território inimigo → estado `RAIDED` |
 
 **Alertas durante o hack wireless** (membros online da facção atacada):
 
@@ -159,7 +164,9 @@ Alterna logs `[FACTION CLICK]` e `[FACTION GAMEMODE]`.
 
 ### Gestão de facções
 
-#### `/faction create <nome> <cor_hex>`
+### Comandos — Jogador desbloqueado / LuckPerms nível 1
+
+### `/faction create <nome> <cor_hex>`
 
 Cria uma facção e define quem executou o comando como **Oficial** e primeiro membro.
 
@@ -169,8 +176,50 @@ Cria uma facção e define quem executou o comando como **Oficial** e primeiro m
 
 | | |
 |---|---|
+| **Visibilidade** | Nível **1** (LuckPerms) **ou** player já desbloqueado |
+| **Gate** | NBT `can_create_faction=true` **ou** nó `faction_control.create_faction` **ou** OP 2+ |
 | **cor_hex** | Formato `#RRGGBB` (ex.: `#00FF00`) |
-| **Efeito** | Nova entrada em `factions` no JSON; player entra na facção |
+| **Bloqueios** | Já pertence a uma facção; nome repetido; cor inválida; gate fechado |
+
+### `/faction cancreate <player>`
+
+Mostra a flag NBT e o resultado efetivo (flag / LuckPerms / OP).
+
+```
+/faction cancreate Steve
+```
+
+| | |
+|---|---|
+| **Permissão** | Nível **1** (LuckPerms, quest, console) |
+
+#### `/faction cancreate <player> toggle`
+
+Inverte a flag NBT.
+
+```
+/faction cancreate Steve toggle
+```
+
+#### `/faction cancreate <player> <true|false>`
+
+Define a flag. Quest (FTB Quests e similares) ou LuckPerms podem executar:
+
+```
+/faction cancreate Steve true
+/faction cancreate Steve false
+```
+
+LuckPerms (nó direto, sem comando):
+
+```
+lp user Steve permission set faction_control.create_faction true
+lp group cidadao permission set faction_control.create_faction true
+```
+
+---
+
+### Gestão de facções (OP 2+)
 
 #### `/faction delete_force <nome>`
 
@@ -294,9 +343,10 @@ Recarrega `config/faction_control.json` do disco e sincroniza facção com todos
 | Comando | Jogador | Membro | Oficial | OP (Admin) | OP (Modo Jogador) |
 |---------|:-------:|:------:|:-------:|:----------:|:-----------------:|
 | `accept` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `create` | ✓† | | | ✓ | ✓ |
+| `cancreate` | | | | ✓‡ | ✓‡ |
 | `set flag` | | | ✓ | ✓* | ✓* |
 | `invite` | | | ✓ | ✓* | ✓* |
-| `create` | | | | ✓ | ✓ |
 | `delete_force` | | | | ✓ | ✓ |
 | `join_forced` | | | | ✓ | ✓ |
 | `leave_force` | | | | ✓ | ✓ |
@@ -307,7 +357,9 @@ Recarrega `config/faction_control.json` do disco e sincroniza facção com todos
 | `playmode` | | | | ✓ | ✓ |
 | `debug clicks` | | | | ✓ | ✓ |
 
-\*OP precisa ser Oficial da facção **e** estar em Modo Jogador para sentir as mesmas restrições de território; em Modo Admin pode ignorar proteções.
+\*OP precisa ser Oficial da facção **e** estar em Modo Jogador para sentir as mesmas restrições de território; em Modo Admin pode ignorar proteções.  
+†Exige flag NBT, nó LuckPerms `faction_control.create_faction`, ou OP 2. Nível 1 só deixa o comando visível.  
+‡Nível **1** (LuckPerms / quest / console), não precisa ser OP 2.
 
 ---
 
@@ -341,3 +393,7 @@ Quando o mod TaCZ está instalado:
 
 - Armas podem ser usadas em **todo o Overworld**, inclusive território inimigo protegido.
 - **Exceção:** safezones admin (`admin_chunks`) — tiro bloqueado se o atirador **ou** o alvo estiver no chunk admin, com mensagem de zona segura.
+
+---
+
+Arquitetura e port 1.21.1: [ARCHITECTURE.md](ARCHITECTURE.md), [architecture.yml](architecture/architecture.yml), [conversão 1.21.1](implementations/1.21.1/conversion-inventory.md).

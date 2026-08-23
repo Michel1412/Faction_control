@@ -1,7 +1,7 @@
 package com.factioncontrol.compat.tacz;
 
-import com.factioncontrol.config.FactionConfigManager;
 import com.factioncontrol.util.FactionChat;
+import com.factioncontrol.util.TerritoryProtectionHelper;
 import com.mojang.logging.LogUtils;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -57,7 +57,7 @@ public final class TaczIntegration {
                 return;
             }
 
-            if (!FactionConfigManager.adminChunksSet.contains(shooter.chunkPosition())
+            if (!TerritoryProtectionHelper.isAdminChunk(shooter.chunkPosition())
                     && !isTargetInAdminChunk(event, shooter)) {
                 return;
             }
@@ -94,13 +94,13 @@ public final class TaczIntegration {
                     if (targetPlayer.getUUID().equals(shooter.getUUID())) {
                         continue;
                     }
-                    return FactionConfigManager.adminChunksSet.contains(targetPlayer.chunkPosition());
+                    return TerritoryProtectionHelper.isAdminChunk(targetPlayer.chunkPosition());
                 }
                 if (targetObj instanceof Entity entity) {
                     if (entity.getUUID().equals(shooter.getUUID())) {
                         continue;
                     }
-                    return FactionConfigManager.adminChunksSet.contains(new ChunkPos(entity.blockPosition()));
+                    return TerritoryProtectionHelper.isAdminChunk(new ChunkPos(entity.blockPosition()));
                 }
             } catch (ReflectiveOperationException ignored) {
             }

@@ -9,6 +9,7 @@ import com.factioncontrol.util.FactionChat;
 import com.factioncontrol.util.FactionDebugSettings;
 import com.factioncontrol.util.FactionSync;
 import com.factioncontrol.util.FlagHelper;
+import com.factioncontrol.util.FactionPlayerData;
 import com.factioncontrol.util.PlayerPlayModeHelper;
 import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.CommandDispatcher;
@@ -67,7 +68,10 @@ public final class FactionCommands {
     private static final SimpleCommandExceptionType NO_PENDING_INVITE =
             new SimpleCommandExceptionType(Component.literal("Voce nao possui convite pendente."));
     private static final SimpleCommandExceptionType INVITE_EXPIRED =
-            new SimpleCommandExceptionType(Component.literal("Seu convite expirou. Peça um novo convite ao Oficial."));
+            new SimpleCommandExceptionType(Component.literal("Seu convite expirou. Peca um novo convite ao Oficial."));
+    private static final SimpleCommandExceptionType CANNOT_CREATE_FACTION =
+            new SimpleCommandExceptionType(Component.literal(
+                    "Voce ainda nao pode criar uma faccao. Conclua a quest ou peca a um staff."));
 
     private FactionCommands() {
     }
@@ -86,7 +90,7 @@ public final class FactionCommands {
                 .then(Commands.literal("accept")
                         .executes(context -> acceptInvite(context.getSource())))
                 .then(Commands.literal("create")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(FactionPermissions::canSeeCreateCommand)
                         .then(Commands.argument("nome", StringArgumentType.word())
                                 .then(Commands.argument("cor", StringArgumentType.string())
                                         .executes(context -> createFaction(
@@ -94,29 +98,47 @@ public final class FactionCommands {
                                                 StringArgumentType.getString(context, "nome"),
                                                 StringArgumentType.getString(context, "cor")
                                         )))))
+                .then(Commands.literal("cancreate")
+                        .requires(FactionPermissions::isTrusted)
+                        .then(Commands.argument("player", EntityArgument.player())
+                                .executes(context -> showCanCreate(
+                                        context.getSource(),
+                                        EntityArgument.getPlayer(context, "player")
+                                ))
+                                .then(Commands.literal("toggle")
+                                        .executes(context -> toggleCanCreate(
+                                                context.getSource(),
+                                                EntityArgument.getPlayer(context, "player")
+                                        )))
+                                .then(Commands.argument("ativar", BoolArgumentType.bool())
+                                        .executes(context -> setCanCreate(
+                                                context.getSource(),
+                                                EntityArgument.getPlayer(context, "player"),
+                                                BoolArgumentType.getBool(context, "ativar")
+                                        )))))
                 .then(Commands.literal("delete_force")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(FactionPermissions::isAdmin)
                         .then(Commands.argument("nome", StringArgumentType.greedyString())
                                 .executes(context -> deleteForce(
                                         context.getSource(),
                                         StringArgumentType.getString(context, "nome")
                                 ))))
                 .then(Commands.literal("join_forced")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(FactionPermissions::isAdmin)
                         .then(Commands.argument("nome", StringArgumentType.greedyString())
                                 .executes(context -> joinForced(
                                         context.getSource(),
                                         StringArgumentType.getString(context, "nome")
                                 ))))
                 .then(Commands.literal("leave_force")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(FactionPermissions::isAdmin)
                         .then(Commands.argument("player", EntityArgument.player())
                                 .executes(context -> leaveForce(
                                         context.getSource(),
                                         EntityArgument.getPlayer(context, "player")
                                 ))))
                 .then(Commands.literal("set_leader")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(FactionPermissions::isAdmin)
                         .then(Commands.argument("player", EntityArgument.player())
                                 .then(Commands.argument("nome", StringArgumentType.greedyString())
                                         .executes(context -> setLeader(
@@ -125,40 +147,40 @@ public final class FactionCommands {
                                                 StringArgumentType.getString(context, "nome")
                                         )))))
                 .then(Commands.literal("admin_claim")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(FactionPermissions::isAdmin)
                         .executes(context -> adminClaim(context.getSource())))
                 .then(Commands.literal("admin_unclaim")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(FactionPermissions::isAdmin)
                         .executes(context -> adminUnclaim(context.getSource())))
                 .then(Commands.literal("admin_setchunk")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(FactionPermissions::isAdmin)
                         .then(Commands.argument("nome", StringArgumentType.greedyString())
                                 .executes(context -> adminSetChunk(
                                         context.getSource(),
                                         StringArgumentType.getString(context, "nome")
                                 ))))
                 .then(Commands.literal("admin_removechunk")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(FactionPermissions::isAdmin)
                         .then(Commands.argument("nome", StringArgumentType.greedyString())
                                 .executes(context -> adminRemoveChunk(
                                         context.getSource(),
                                         StringArgumentType.getString(context, "nome")
                                 ))))
                 .then(Commands.literal("list")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(FactionPermissions::isAdmin)
                         .executes(context -> listFactions(context.getSource())))
                 .then(Commands.literal("info")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(FactionPermissions::isAdmin)
                         .then(Commands.argument("nome", StringArgumentType.greedyString())
                                 .executes(context -> factionInfo(
                                         context.getSource(),
                                         StringArgumentType.getString(context, "nome")
                                 ))))
                 .then(Commands.literal("reload")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(FactionPermissions::isAdmin)
                         .executes(context -> reloadConfig(context.getSource())))
                 .then(Commands.literal("playmode")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(FactionPermissions::isAdmin)
                         .executes(context -> showPlayMode(context.getSource()))
                         .then(Commands.literal("toggle")
                                 .executes(context -> togglePlayMode(context.getSource())))
@@ -168,7 +190,7 @@ public final class FactionCommands {
                                         BoolArgumentType.getBool(context, "ativar")
                                 ))))
                 .then(Commands.literal("debug")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(FactionPermissions::isAdmin)
                         .then(Commands.literal("clicks")
                                 .executes(context -> showClickLogging(context.getSource()))
                                 .then(Commands.literal("toggle")
@@ -234,7 +256,6 @@ public final class FactionCommands {
             return 0;
         }
 
-        manager.forceSave();
         FactionChat.sendSuccess(player, faction, "Voce entrou na faccao!");
         FactionSync.sendTo(player);
 
@@ -294,6 +315,12 @@ public final class FactionCommands {
         ServerPlayer player = requirePlayer(source);
         FactionManager manager = FactionManager.get(source.getServer());
 
+        if (!FactionPermissions.canCreateFaction(player)) {
+            throw CANNOT_CREATE_FACTION.create();
+        }
+        if (manager.getFactionOfMember(player.getUUID()) != null) {
+            throw TARGET_ALREADY_IN_FACTION.create();
+        }
         if (manager.isNameTaken(name)) {
             throw FACTION_NAME_TAKEN.create();
         }
@@ -303,10 +330,48 @@ public final class FactionCommands {
 
         int color = FactionConfigManager.parseColorHex(hexColor);
         FactionObject faction = manager.createFaction(name, color, player.getUUID());
-        manager.forceSave();
 
         FactionChat.sendSuccess(player, faction, "Faccao criada! Voce e o Oficial.");
         FactionSync.sendTo(player);
+        return 1;
+    }
+
+    private static int showCanCreate(CommandSourceStack source, ServerPlayer target) {
+        boolean allowed = FactionPlayerData.getCanCreateFaction(target);
+        boolean effective = FactionPermissions.canCreateFaction(target);
+        source.sendSuccess(
+                () -> Component.literal(target.getGameProfile().getName()
+                                + " | flag can_create_faction: " + allowed
+                                + " | efetivo (flag/LuckPerms/OP): " + effective)
+                        .withStyle(ChatFormatting.AQUA),
+                false
+        );
+        return 1;
+    }
+
+    private static int toggleCanCreate(CommandSourceStack source, ServerPlayer target) {
+        return sendCanCreateResult(source, target, FactionPlayerData.toggleCanCreateFaction(target));
+    }
+
+    private static int setCanCreate(CommandSourceStack source, ServerPlayer target, boolean allowed) {
+        FactionPlayerData.setCanCreateFaction(target, allowed);
+        return sendCanCreateResult(source, target, allowed);
+    }
+
+    private static int sendCanCreateResult(CommandSourceStack source, ServerPlayer target, boolean allowed) {
+        ChatFormatting color = allowed ? ChatFormatting.GREEN : ChatFormatting.GRAY;
+        String status = allowed ? "LIBERADO" : "BLOQUEADO";
+        source.sendSuccess(
+                () -> Component.literal("Criacao de faccao de "
+                                + target.getGameProfile().getName() + ": " + status)
+                        .withStyle(color),
+                true
+        );
+        target.sendSystemMessage(Component.literal(
+                allowed
+                        ? "Voce agora pode criar uma faccao com /faction create <nome> <#RRGGBB>."
+                        : "Voce nao pode mais criar uma faccao."
+        ).withStyle(color));
         return 1;
     }
 
@@ -324,12 +389,7 @@ public final class FactionCommands {
         Set<UUID> members = faction.getMembers();
 
         FlagHelper.stripFactionFlag(server, faction);
-        ChunkPos flagChunk = faction.getFlagChunk();
-        if (flagChunk != null) {
-            FlagHelper.removeFlagsInChunk(server.overworld(), flagChunk);
-        }
         manager.deleteFaction(factionId);
-        manager.forceSave();
 
         for (UUID memberId : members) {
             ServerPlayer member = server.getPlayerList().getPlayer(memberId);
@@ -458,7 +518,6 @@ public final class FactionCommands {
         }
 
         manager.forceClaimChunk(faction.getFactionId(), chunkPos);
-        manager.forceSave();
 
         source.sendSuccess(() -> Component.literal("Chunk ")
                 .append(Component.literal(chunkPos.x + ", " + chunkPos.z).withStyle(ChatFormatting.AQUA))
@@ -482,7 +541,6 @@ public final class FactionCommands {
             throw CHUNK_NOT_CLAIMED_BY_FACTION.create();
         }
 
-        manager.forceSave();
         source.sendSuccess(() -> Component.literal("Chunk ")
                 .append(Component.literal(chunkPos.x + ", " + chunkPos.z).withStyle(ChatFormatting.AQUA))
                 .append(Component.literal(" removido de "))

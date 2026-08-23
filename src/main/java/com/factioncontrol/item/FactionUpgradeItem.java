@@ -171,7 +171,6 @@ public class FactionUpgradeItem extends Item {
             return InteractionResult.FAIL;
         }
 
-        manager.forceSave();
         stack.shrink(1);
         spawnSuccessParticles(level, flagPos);
         FactionChat.sendSuccess(player, faction,

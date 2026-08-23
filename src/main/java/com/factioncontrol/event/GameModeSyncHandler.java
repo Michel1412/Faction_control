@@ -19,6 +19,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.slf4j.Logger;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -31,6 +32,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class GameModeSyncHandler {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Set<UUID> MOD_CONTROLLED_ADVENTURE = ConcurrentHashMap.newKeySet();
+    /** Packed chunk + dimension + current game-mode; skip tick work when unchanged. */
+    private static final Map<UUID, Long> LAST_TICK_SIGNATURE = new ConcurrentHashMap<>();
 
     private GameModeSyncHandler() {
     }
@@ -47,7 +50,15 @@ public final class GameModeSyncHandler {
             return;
         }
 
-        syncForChunk(player, player.chunkPosition(), "PlayerTick");
+        ChunkPos chunkPos = player.chunkPosition();
+        long signature = tickSignature(player, chunkPos);
+        Long previous = LAST_TICK_SIGNATURE.get(player.getUUID());
+        if (previous != null && previous == signature) {
+            return;
+        }
+
+        syncForChunk(player, chunkPos, "PlayerTick");
+        LAST_TICK_SIGNATURE.put(player.getUUID(), tickSignature(player, chunkPos));
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
@@ -152,6 +163,7 @@ public final class GameModeSyncHandler {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
+        LAST_TICK_SIGNATURE.remove(player.getUUID());
         restoreSurvivalIfModControlled(player);
     }
 
@@ -161,6 +173,14 @@ public final class GameModeSyncHandler {
             return;
         }
         restoreSurvivalIfModControlled(player);
+    }
+
+    private static long tickSignature(ServerPlayer player, ChunkPos chunkPos) {
+        int dimensionBit = player.serverLevel().dimension() == Level.OVERWORLD ? 1 : 0;
+        int gameModeId = player.gameMode.getGameModeForPlayer().getId() & 0x7;
+        return ChunkPos.asLong(chunkPos.x, chunkPos.z)
+                ^ ((long) dimensionBit << 62)
+                ^ ((long) gameModeId << 58);
     }
 
     private static void restoreSurvivalIfModControlled(ServerPlayer player) {

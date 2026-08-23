@@ -13,11 +13,11 @@ public final class SafezoneHelper {
     }
 
     public static boolean isAdminChunk(FactionManager manager, ChunkPos chunkPos) {
-        return FactionConfigManager.adminChunksSet.contains(chunkPos);
+        return FactionConfigManager.isAdminChunk(chunkPos);
     }
 
     public static boolean isAdminChunk(ServerLevel level, ChunkPos chunkPos) {
-        return isAdminChunk(FactionManager.get(level), chunkPos);
+        return FactionConfigManager.isAdminChunk(chunkPos);
     }
 
     public static boolean isAdminChunk(ServerLevel level, BlockPos pos) {
@@ -25,11 +25,11 @@ public final class SafezoneHelper {
     }
 
     public static boolean isStaffProtectedZone(FactionManager manager, ChunkPos chunkPos) {
-        return FactionConfigManager.adminChunksSet.contains(chunkPos);
+        return FactionConfigManager.isAdminChunk(chunkPos);
     }
 
     public static boolean isStaffProtectedZone(ServerLevel level, ChunkPos chunkPos) {
-        return isStaffProtectedZone(FactionManager.get(level), chunkPos);
+        return FactionConfigManager.isAdminChunk(chunkPos);
     }
 
     @Nullable

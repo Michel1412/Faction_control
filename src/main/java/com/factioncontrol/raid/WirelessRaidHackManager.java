@@ -24,8 +24,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class WirelessRaidHackManager {
     public static final int HACK_DURATION_TICKS = 20 * 60;
-    private static final int LEADER_SLOWNESS_DURATION_TICKS = 40;
-    private static final int LEADER_SLOWNESS_AMPLIFIER = 9;
+    /** Short refresh window; reapplied every tick only on the hacker. */
+    private static final int HACKER_SLOWNESS_DURATION_TICKS = 40;
+    private static final int HACKER_SLOWNESS_AMPLIFIER = 9;
     private static final String LEADER_ALERT =
             "SISTEMAS EXPOSTOS: Voce esta sendo hackeado via wireless!";
 
@@ -35,6 +36,10 @@ public final class WirelessRaidHackManager {
     }
 
     public static void tick(ServerPlayer player) {
+        if (!shouldTick(player)) {
+            return;
+        }
+
         if (!player.isUsingItem() || !player.getUseItem().is(ModItems.RAID_CONTROLLER.get())) {
             cancelSession(player.getUUID(), CancelReason.RELEASED);
             return;
@@ -69,7 +74,8 @@ public final class WirelessRaidHackManager {
         }
 
         session.incrementTicks();
-        refreshLeaderDebuff(session);
+        // Debuff applies only to the player holding the Raid Controller — never to nearby players or the target faction.
+        refreshHackerDebuff(player);
         sendProgressActionBar(player, session);
 
         int percent = Math.min(100, (int) ((session.ticksElapsed() * 100L) / HACK_DURATION_TICKS));
@@ -80,17 +86,29 @@ public final class WirelessRaidHackManager {
         }
     }
 
+    public static boolean shouldTick(ServerPlayer player) {
+        if (!ACTIVE_SESSIONS.isEmpty() && ACTIVE_SESSIONS.containsKey(player.getUUID())) {
+            return true;
+        }
+        return player.isUsingItem() && player.getUseItem().is(ModItems.RAID_CONTROLLER.get());
+    }
+
     public static void cancelSession(UUID playerId, CancelReason reason) {
         HackSession session = ACTIVE_SESSIONS.remove(playerId);
         if (session == null) {
             return;
         }
-        removeLeaderDebuff(session);
+        removeHackerDebuff(session.server(), playerId);
     }
 
     @Nullable
     private static HackSession tryStartSession(ServerPlayer player, ServerLevel level) {
         FactionManager manager = FactionManager.get(level);
+        FactionObject attackerFaction = manager.getFactionOfMember(player.getUUID());
+        if (attackerFaction == null || !attackerFaction.isLeader(player.getUUID())) {
+            FactionChat.sendErrorActionBar(player, "Apenas o Oficial da faccao pode usar o Controle de Hack.");
+            return null;
+        }
 
         FactionObject targetFaction = TerritoryProtectionHelper.getEnemyFactionAtChunk(
                 player, player.chunkPosition());
@@ -98,7 +116,12 @@ public final class WirelessRaidHackManager {
             return null;
         }
 
-        HackSession session = new HackSession(player.server, targetFaction.getFactionId(), targetFaction.getLeaderId());
+        HackSession session = new HackSession(
+                player.server,
+                player.getUUID(),
+                targetFaction.getFactionId(),
+                targetFaction.getOfficialUuid()
+        );
         ACTIVE_SESSIONS.put(player.getUUID(), session);
         notifyLeaderInvasion(session);
         return session;
@@ -107,7 +130,6 @@ public final class WirelessRaidHackManager {
     private static void completeHack(ServerPlayer player, ServerLevel level, HackSession session) {
         FactionManager manager = FactionManager.get(level);
         manager.setFactionFlagState(session.targetFactionId(), FlagState.RAIDED);
-        manager.forceSave();
 
         FactionObject targetFaction = manager.getFaction(session.targetFactionId());
         if (targetFaction != null) {
@@ -209,34 +231,25 @@ public final class WirelessRaidHackManager {
         leader.sendSystemMessage(Component.literal(LEADER_ALERT).withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
     }
 
-    private static void refreshLeaderDebuff(HackSession session) {
-        if (session.leaderId() == null) {
-            return;
-        }
-
-        ServerPlayer leader = session.server().getPlayerList().getPlayer(session.leaderId());
-        if (leader == null) {
-            return;
-        }
-
-        leader.addEffect(new MobEffectInstance(
+    /**
+     * Applies Slowness only to {@code hacker} — the player actively using the Raid Controller.
+     * Does not affect nearby entities, faction members, or the enemy Official.
+     */
+    private static void refreshHackerDebuff(ServerPlayer hacker) {
+        hacker.addEffect(new MobEffectInstance(
                 MobEffects.MOVEMENT_SLOWDOWN,
-                LEADER_SLOWNESS_DURATION_TICKS,
-                LEADER_SLOWNESS_AMPLIFIER,
+                HACKER_SLOWNESS_DURATION_TICKS,
+                HACKER_SLOWNESS_AMPLIFIER,
                 false,
                 true,
                 true
         ));
     }
 
-    private static void removeLeaderDebuff(HackSession session) {
-        if (session.leaderId() == null) {
-            return;
-        }
-
-        ServerPlayer leader = session.server().getPlayerList().getPlayer(session.leaderId());
-        if (leader != null && leader.isAlive()) {
-            leader.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
+    private static void removeHackerDebuff(net.minecraft.server.MinecraftServer server, UUID hackerId) {
+        ServerPlayer hacker = server.getPlayerList().getPlayer(hackerId);
+        if (hacker != null && hacker.isAlive()) {
+            hacker.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
         }
     }
 
@@ -259,6 +272,7 @@ public final class WirelessRaidHackManager {
 
     public static final class HackSession {
         private final net.minecraft.server.MinecraftServer server;
+        private final UUID hackerId;
         private final UUID targetFactionId;
         @Nullable
         private final UUID leaderId;
@@ -269,14 +283,24 @@ public final class WirelessRaidHackManager {
         private boolean milestone80Sent;
         private boolean milestone90Sent;
 
-        HackSession(net.minecraft.server.MinecraftServer server, UUID targetFactionId, @Nullable UUID leaderId) {
+        HackSession(
+                net.minecraft.server.MinecraftServer server,
+                UUID hackerId,
+                UUID targetFactionId,
+                @Nullable UUID leaderId
+        ) {
             this.server = server;
+            this.hackerId = hackerId;
             this.targetFactionId = targetFactionId;
             this.leaderId = leaderId;
         }
 
         net.minecraft.server.MinecraftServer server() {
             return server;
+        }
+
+        UUID hackerId() {
+            return hackerId;
         }
 
         UUID targetFactionId() {

@@ -11,10 +11,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.level.TicketType;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.state.BlockState;
 
 import javax.annotation.Nullable;
 import java.util.Set;
@@ -45,18 +43,20 @@ public final class FlagHelper {
             return false;
         }
 
-        manager.setFactionFlagBlockPos(
-                faction.getFactionId(),
-                pos,
-                level.dimension().location().toString()
-        );
-        manager.claimSingleChunk(faction.getFactionId(), chunkPos);
-        manager.forceSave();
+        FactionConfigManager.withSinglePersist(() -> {
+            manager.setFactionFlagBlockPos(
+                    faction.getFactionId(),
+                    pos,
+                    level.dimension().location().toString()
+            );
+            manager.claimSingleChunk(faction.getFactionId(), chunkPos);
+        });
         return true;
     }
 
     public static boolean hasActiveFlagInWorld(MinecraftServer server, FactionObject faction) {
-        if (!faction.hasFlag()) {
+        BlockPos flagPos = faction.getFlagBlockPos();
+        if (flagPos == null) {
             return false;
         }
 
@@ -65,59 +65,35 @@ public final class FlagHelper {
             return false;
         }
 
-        BlockPos flagPos = faction.getFlagBlockPos();
-        if (flagPos != null && level.getBlockState(flagPos).is(ModBlocks.FLAG_BLOCK.get())) {
-            return true;
-        }
-
-        ChunkPos flagChunk = faction.getFlagChunk();
-        if (flagChunk != null) {
-            return findFlagBlockPos(level, flagChunk) != null;
-        }
-
-        return false;
+        return level.getBlockState(flagPos).is(ModBlocks.FLAG_BLOCK.get());
     }
 
     public static void removeFlagsInChunk(ServerLevel level, ChunkPos chunkPos) {
-        forceLoadChunk(level, chunkPos);
-
-        int minX = chunkPos.getMinBlockX();
-        int maxX = chunkPos.getMaxBlockX();
-        int minZ = chunkPos.getMinBlockZ();
-        int maxZ = chunkPos.getMaxBlockZ();
-
-        for (int x = minX; x <= maxX; x++) {
-            for (int z = minZ; z <= maxZ; z++) {
-                for (int y = level.getMinBuildHeight(); y < level.getMaxBuildHeight(); y++) {
-                    BlockPos pos = new BlockPos(x, y, z);
-                    BlockState state = level.getBlockState(pos);
-                    if (state.is(ModBlocks.FLAG_BLOCK.get())) {
-                        level.destroyBlock(pos, false);
-                    }
-                }
-            }
+        BlockPos savedPos = findFlagBlockPos(level, chunkPos);
+        if (savedPos != null && level.getBlockState(savedPos).is(ModBlocks.FLAG_BLOCK.get())) {
+            level.destroyBlock(savedPos, false);
         }
-
-        releaseChunk(level, chunkPos);
     }
 
     @Nullable
     public static FactionObject resolveFactionAtFlag(ServerLevel level, BlockPos pos) {
         FactionManager manager = FactionManager.get(level);
-
+        FactionObject byFlagChunk = manager.getFactionByFlag(new ChunkPos(pos));
+        if (byFlagChunk != null) {
+            return byFlagChunk;
+        }
         for (FactionObject faction : manager.getAllFactions()) {
             if (faction.matchesRegisteredFlag(level, pos)) {
                 return faction;
             }
         }
-
-        return manager.getFactionByFlag(new ChunkPos(pos));
+        return null;
     }
 
     public static void clearFlagTerritory(ServerLevel level, BlockPos flagPos) {
         FactionObject faction = resolveFactionAtFlag(level, flagPos);
         if (faction == null) {
-            UUID chunkOwner = FactionConfigManager.chunkToFactionMap.get(new ChunkPos(flagPos));
+            UUID chunkOwner = FactionConfigManager.getChunkOwner(new ChunkPos(flagPos));
             if (chunkOwner != null) {
                 FactionManager.get(level).releaseFactionClaims(chunkOwner);
             }
@@ -129,11 +105,12 @@ public final class FlagHelper {
             faction.clearFlag();
             FactionConfigManager.setFlagBlockPos(faction.getFactionId(), null, null);
         } else {
-            FactionConfigManager.releaseFactionClaims(faction.getFactionId());
-            faction.clearFlag();
-            FactionConfigManager.setFlagBlockPos(faction.getFactionId(), null, null);
+            FactionConfigManager.withSinglePersist(() -> {
+                FactionConfigManager.releaseFactionClaims(faction.getFactionId());
+                faction.clearFlag();
+                FactionConfigManager.setFlagBlockPos(faction.getFactionId(), null, null);
+            });
         }
-        FactionConfigManager.forceSave();
     }
 
     public static void onFlagBlockRemoved(ServerLevel level, BlockPos pos) {
@@ -167,38 +144,22 @@ public final class FlagHelper {
         }
     }
 
+    /**
+     * Resolves a flag from saved {@code flag_position} only — no full-chunk Y scan.
+     */
     @Nullable
     public static BlockPos findFlagBlockPos(ServerLevel level, ChunkPos chunkPos) {
-        FactionManager manager = FactionManager.get(level);
-        for (FactionObject faction : manager.getAllFactions()) {
-            BlockPos savedPos = faction.getFlagBlockPos();
-            if (savedPos != null && new ChunkPos(savedPos).equals(chunkPos)) {
-                if (level.getBlockState(savedPos).is(ModBlocks.FLAG_BLOCK.get())) {
-                    return savedPos;
-                }
-            }
+        FactionObject faction = FactionConfigManager.getFactionByFlagChunk(chunkPos);
+        if (faction == null) {
+            return null;
         }
-
-        forceLoadChunk(level, chunkPos);
-
-        int minX = chunkPos.getMinBlockX();
-        int maxX = chunkPos.getMaxBlockX();
-        int minZ = chunkPos.getMinBlockZ();
-        int maxZ = chunkPos.getMaxBlockZ();
-
-        for (int x = minX; x <= maxX; x++) {
-            for (int z = minZ; z <= maxZ; z++) {
-                for (int y = level.getMinBuildHeight(); y < level.getMaxBuildHeight(); y++) {
-                    BlockPos pos = new BlockPos(x, y, z);
-                    if (level.getBlockState(pos).is(ModBlocks.FLAG_BLOCK.get())) {
-                        releaseChunk(level, chunkPos);
-                        return pos;
-                    }
-                }
-            }
+        BlockPos savedPos = faction.getFlagBlockPos();
+        if (savedPos == null || !new ChunkPos(savedPos).equals(chunkPos)) {
+            return null;
         }
-
-        releaseChunk(level, chunkPos);
+        if (level.getBlockState(savedPos).is(ModBlocks.FLAG_BLOCK.get())) {
+            return savedPos;
+        }
         return null;
     }
 
@@ -210,14 +171,5 @@ public final class FlagHelper {
         }
         ResourceKey<Level> dimensionKey = ResourceKey.create(Registries.DIMENSION, location);
         return server.getLevel(dimensionKey);
-    }
-
-    private static void forceLoadChunk(ServerLevel level, ChunkPos chunkPos) {
-        level.getChunkSource().addRegionTicket(TicketType.FORCED, chunkPos, 2, chunkPos);
-        level.getChunk(chunkPos.x, chunkPos.z);
-    }
-
-    private static void releaseChunk(ServerLevel level, ChunkPos chunkPos) {
-        level.getChunkSource().removeRegionTicket(TicketType.FORCED, chunkPos, 2, chunkPos);
     }
 }

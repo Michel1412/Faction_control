@@ -78,9 +78,9 @@ public final class TerritoryInteractionLogHandler {
                 player.serverLevel().getBlockState(pos)
         );
 
-        UUID ownerId = FactionConfigManager.chunkToFactionMap.get(chunkPos);
+        UUID ownerId = FactionConfigManager.getChunkOwner(chunkPos);
         FactionRole role = TerritoryProtectionHelper.getRole(player.getUUID(), ownerId);
-        UUID playerFactionId = FactionConfigManager.playerToFactionMap.get(player.getUUID());
+        UUID playerFactionId = FactionConfigManager.getPlayerFactionId(player.getUUID());
 
         LOGGER.info(
                 "[FACTION CLICK] Evento: " + eventName

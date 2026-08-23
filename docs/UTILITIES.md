@@ -1,6 +1,13 @@
 # Faction Control — Internal Mechanics
 
-This document describes how core systems are structured under the hood.
+This document describes **domain** mechanics: JSON schema, raid flow, protection table, upgrade adjacency.
+
+Loader-specific APIs (Forge events, item NBT, packets) live next to the Minecraft version:
+
+- [1.20.1 implementation](implementations/1.20.1/) — current production
+- [1.21.1 conversion](implementations/1.21.1/conversion-inventory.md) — planned NeoForge port
+
+---
 
 ---
 
@@ -38,6 +45,14 @@ config/faction_control.json
   ],
   "admin_chunks": [
     { "x": -7, "z": -8 }
+  ],
+  "pending_invites": [
+    {
+      "target_uuid": "player-uuid",
+      "faction_uuid": "faction-uuid",
+      "inviter_uuid": "official-uuid",
+      "expires_at_ms": 0
+    }
   ]
 }
 ```
@@ -49,9 +64,25 @@ config/faction_control.json
 | `factionsMap` | Faction UUID | `FactionObject` | Full faction records |
 | `chunkToFactionMap` | `ChunkPos` | Faction UUID | O(1) chunk ownership lookup |
 | `playerToFactionMap` | Player UUID | Faction UUID | O(1) membership lookup |
+| `nameToFactionMap` | Lowercased name | Faction UUID | O(1) `/faction` name resolve |
+| `flagChunkToFactionMap` | Chunk long key | Faction UUID | O(1) flag-chunk owner |
 | `adminChunksSet` | `ChunkPos` | (set membership) | Admin Safezone registry |
 
-`rebuildDerivedMaps()` repopulates the three derived structures from `factionsMap` after every load or write.
+`rebuildDerivedMaps()` repopulates derived structures from `factionsMap` after every load or write. Multi-step mutations use `withSinglePersist` so the JSON is written once.
+
+---
+
+## Create-faction gate
+
+Default: **blocked**. Stored on the player under persistent compound `faction_control.can_create_faction` (boolean, default false). Copied on death (clone hook is version-specific: [1.20.1](implementations/1.20.1/player-data.md)).
+
+Unlock (OR):
+
+1. `/faction cancreate <player> true` (or `toggle`) — vanilla permission **level 1**
+2. LuckPerms / Forge PermissionAPI node `faction_control.create_faction`
+3. OP level **2+** (bypass)
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) and [COMANDOS.md](COMANDOS.md).
 
 ### Flag states
 
@@ -66,18 +97,16 @@ config/faction_control.json
 
 **Item ID:** `faction_control:faction_upgrade_item`
 
-### Step 1 — Bind chunk (NBT)
+### Step 1 — Bind chunk
 
 The Official **Shift + right-clicks** (or Shift + uses) while holding the upgrade item.
 
 Backend (`FactionUpgradeItem.bindPlayerChunk`):
 1. Reads `player.chunkPosition()`.
 2. Rejects admin Safezone chunks (`TerritoryProtectionHelper.canRegisterChunkForUpgrade`).
-3. Writes NBT to the item stack:
-   - `SelectedChunkX` (int)
-   - `SelectedChunkZ` (int)
-
-The selected chunk coordinates travel with the item until consumed.
+3. Stores the chunk on the **item** until consumed:
+   - **1.20.1:** stack NBT `SelectedChunkX` / `SelectedChunkZ` — [items-nbt.md](implementations/1.20.1/items-nbt.md)
+   - **1.21.1:** Data Component `faction_control:selected_chunk` — [data-components.md](implementations/1.21.1/data-components.md)
 
 ### Step 2 — Apply to flag
 
@@ -86,7 +115,7 @@ The Official **right-clicks** the faction's `flag_block` (without Shift).
 Backend validation chain:
 1. Resolve faction from flag block position (`FlagHelper.resolveFactionAtFlag`).
 2. Verify executor is the Official.
-3. Read bound chunk from item NBT.
+3. Read bound chunk from the item (NBT on 1.20.1, Data Component on 1.21.1).
 4. Reject admin chunks, already-owned chunks, and chunks owned by other factions.
 5. **Adjacency check:** `FactionConfigManager.isChunkAdjacentToFactionTerritory` — the candidate chunk must share an edge (not corner) with any chunk already owned by the faction, including the flag chunk.
 6. `FactionManager.claimSingleChunk` adds the chunk to the faction's `claimed_chunks` set and updates `chunkToFactionMap`.
@@ -122,9 +151,10 @@ When placed:
 
 ### Activation
 
-1. Attacker stands inside **enemy ACTIVE territory** (must be an outsider relative to chunk owner).
-2. **Hold right-click** to begin item use (`RaidControllerItem.use` → `player.startUsingItem`).
-3. `WirelessRaidHackHandler` calls `WirelessRaidHackManager.tick` every server tick while the item is held.
+1. Attacker must be the **Official** of their own faction (members and unaffiliated players are blocked).
+2. Attacker stands inside **enemy ACTIVE territory** (must be an outsider relative to chunk owner).
+3. **Hold right-click** to begin item use (`RaidControllerItem.use` → `player.startUsingItem`).
+4. `WirelessRaidHackHandler` calls `WirelessRaidHackManager.tick` every server tick while the item is held.
 
 ### Session lifecycle
 
@@ -160,10 +190,9 @@ Broadcast to **all online members** of the attacked faction:
 | 80% | Chat | ALERTA: hack at 80% |
 | 90% | Action bar | PERIGO! Hack em 90% |
 
-Additionally, the faction Official receives:
-- Raid horn sound
-- Slowness X while hack is active
-- Immediate chat/action bar: `SISTEMAS EXPOSTOS: Voce esta sendo hackeado via wireless!`
+Additionally:
+- The **hacker** (player holding the Raid Controller) receives Slowness X while the hack is active — no other players are affected.
+- The enemy faction Official receives a raid horn sound and chat/action bar: `SISTEMAS EXPOSTOS: Voce esta sendo hackeado via wireless!`
 
 ### Cancel reasons
 
@@ -219,4 +248,7 @@ Registered via `ModCompatibility` at server start (reflection-based, no hard com
 
 ## Network Sync
 
-`ModNetwork` / `S2CPlayerFactionSyncPacket` pushes faction membership and color data to clients after joins, invites, flag placement, and `/faction reload`.
+`S2CPlayerFactionSyncPacket` pushes faction membership and color data to clients after joins, invites, flag placement, and `/faction reload`.
+
+- **1.20.1:** Forge `SimpleChannel` — [networking.md](implementations/1.20.1/networking.md)
+- **1.21.1:** `CustomPacketPayload` — [networking.md](implementations/1.21.1/networking.md)

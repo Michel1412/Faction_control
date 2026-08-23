@@ -22,6 +22,9 @@ public final class WirelessRaidHackHandler {
         if (!(event.player instanceof ServerPlayer player)) {
             return;
         }
+        if (!WirelessRaidHackManager.shouldTick(player)) {
+            return;
+        }
 
         WirelessRaidHackManager.tick(player);
     }

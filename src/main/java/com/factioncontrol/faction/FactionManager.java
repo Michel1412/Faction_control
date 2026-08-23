@@ -156,7 +156,7 @@ public final class FactionManager {
     }
 
     public boolean isAdminChunk(ChunkPos chunkPos) {
-        return FactionConfigManager.adminChunksSet.contains(chunkPos);
+        return FactionConfigManager.isAdminChunk(chunkPos);
     }
 
     public boolean claimAdminChunk(ChunkPos chunkPos) {
@@ -168,7 +168,7 @@ public final class FactionManager {
     }
 
     public Set<ChunkPos> getAdminChunks() {
-        return new HashSet<>(FactionConfigManager.adminChunksSet);
+        return FactionConfigManager.copyAdminChunks();
     }
 
     @Nullable

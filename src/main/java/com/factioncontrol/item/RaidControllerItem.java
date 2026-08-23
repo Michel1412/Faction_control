@@ -1,5 +1,8 @@
 package com.factioncontrol.item;
 
+import com.factioncontrol.faction.FactionManager;
+import com.factioncontrol.faction.FactionObject;
+import com.factioncontrol.util.FactionChat;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -18,7 +21,7 @@ public class RaidControllerItem extends Item {
     private static final int USE_DURATION_TICKS = 72000;
 
     private static final Component TOOLTIP = Component.literal(
-            "Segure o clique direito em territorio inimigo por 60s para hackear a bandeira wireless."
+            "Apenas o Oficial: segure o clique direito em territorio inimigo por 60s para hackear a bandeira."
     );
 
     public RaidControllerItem(Properties properties) {
@@ -41,8 +44,19 @@ public class RaidControllerItem extends Item {
             return InteractionResultHolder.pass(player.getItemInHand(hand));
         }
 
-        player.startUsingItem(hand);
-        return InteractionResultHolder.consume(player.getItemInHand(hand));
+        if (!FactionManager.isServerDataReady()) {
+            return InteractionResultHolder.fail(serverPlayer.getItemInHand(hand));
+        }
+
+        FactionObject faction = FactionManager.get(serverPlayer.serverLevel())
+                .getFactionOfMember(serverPlayer.getUUID());
+        if (faction == null || !faction.isLeader(serverPlayer.getUUID())) {
+            FactionChat.sendErrorActionBar(serverPlayer, "Apenas o Oficial da faccao pode usar o Controle de Hack.");
+            return InteractionResultHolder.fail(serverPlayer.getItemInHand(hand));
+        }
+
+        serverPlayer.startUsingItem(hand);
+        return InteractionResultHolder.consume(serverPlayer.getItemInHand(hand));
     }
 
     @Override

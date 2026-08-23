@@ -1,5 +1,6 @@
 package com.factioncontrol.config;
 
+import com.factioncontrol.faction.FactionInviteManager;
 import com.factioncontrol.faction.FactionObject;
 import com.factioncontrol.faction.FlagState;
 import com.google.gson.Gson;
@@ -24,6 +25,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -34,10 +36,12 @@ import java.util.UUID;
 public final class FactionConfigManager {
     public static final String CONFIG_FILE_NAME = "faction_control.json";
 
-    public static final Map<UUID, FactionObject> factionsMap = new HashMap<>();
-    public static final Map<ChunkPos, UUID> chunkToFactionMap = new HashMap<>();
-    public static final Map<UUID, UUID> playerToFactionMap = new HashMap<>();
-    public static final Set<ChunkPos> adminChunksSet = new HashSet<>();
+    private static final Map<UUID, FactionObject> factionsMap = new HashMap<>();
+    private static final Map<ChunkPos, UUID> chunkToFactionMap = new HashMap<>();
+    private static final Map<UUID, UUID> playerToFactionMap = new HashMap<>();
+    private static final Map<String, UUID> nameToFactionMap = new HashMap<>();
+    private static final Map<Long, UUID> flagChunkToFactionMap = new HashMap<>();
+    private static final Set<ChunkPos> adminChunksSet = new HashSet<>();
 
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -45,6 +49,7 @@ public final class FactionConfigManager {
 
     @Nullable
     private static MinecraftServer boundServer;
+    private static int persistBatchDepth;
 
     private FactionConfigManager() {
     }
@@ -60,6 +65,7 @@ public final class FactionConfigManager {
     public static void load(MinecraftServer server) {
         bindServer(server);
         clearAllMaps();
+        FactionInviteManager.clear();
         Path path = getConfigPath();
 
         if (!Files.exists(path)) {
@@ -79,7 +85,7 @@ public final class FactionConfigManager {
             }
             applyRoot(root);
             rebuildDerivedMaps();
-            LOGGER.info("Faction Control loaded {} faction(s) from {}", factionsMap.size(), path);
+            LOGGER.info("Faction Control loaded {} faction(s) from {}", factionCount(), path);
             updateLastModified(path);
         } catch (IOException | JsonSyntaxException exception) {
             LOGGER.error("Failed to load Faction Control config from {}", path, exception);
@@ -91,15 +97,24 @@ public final class FactionConfigManager {
         factionsMap.clear();
         chunkToFactionMap.clear();
         playerToFactionMap.clear();
+        nameToFactionMap.clear();
+        flagChunkToFactionMap.clear();
         adminChunksSet.clear();
     }
 
     public static void rebuildDerivedMaps() {
         chunkToFactionMap.clear();
         playerToFactionMap.clear();
+        nameToFactionMap.clear();
+        flagChunkToFactionMap.clear();
 
         for (FactionObject faction : factionsMap.values()) {
             UUID factionId = faction.getFactionId();
+            nameToFactionMap.put(normalizeName(faction.getName()), factionId);
+            ChunkPos flagChunk = faction.getFlagChunk();
+            if (flagChunk != null) {
+                flagChunkToFactionMap.put(flagChunk.toLong(), factionId);
+            }
             for (UUID memberId : faction.getMembers()) {
                 playerToFactionMap.put(memberId, factionId);
             }
@@ -112,9 +127,26 @@ public final class FactionConfigManager {
         }
     }
 
+    /**
+     * Runs mutations with a single JSON write. Nested calls still write once at the outermost exit.
+     */
+    public static void withSinglePersist(Runnable action) {
+        persistBatchDepth++;
+        try {
+            action.run();
+        } finally {
+            persistBatchDepth--;
+            if (persistBatchDepth == 0) {
+                persistToDisk();
+            }
+        }
+    }
+
     private static void persist() {
         rebuildDerivedMaps();
-        persistToDisk();
+        if (persistBatchDepth == 0) {
+            persistToDisk();
+        }
     }
 
     private static void persistToDisk() {
@@ -154,6 +186,23 @@ public final class FactionConfigManager {
         }
     }
 
+    public static int factionCount() {
+        return factionsMap.size();
+    }
+
+    public static boolean isAdminChunk(ChunkPos chunkPos) {
+        return adminChunksSet.contains(chunkPos);
+    }
+
+    public static Set<ChunkPos> copyAdminChunks() {
+        return new HashSet<>(adminChunksSet);
+    }
+
+    @Nullable
+    public static UUID getPlayerFactionId(UUID playerId) {
+        return playerToFactionMap.get(playerId);
+    }
+
     @Nullable
     public static FactionObject getFaction(UUID factionId) {
         return factionsMap.get(factionId);
@@ -161,12 +210,8 @@ public final class FactionConfigManager {
 
     @Nullable
     public static FactionObject getFactionByName(String name) {
-        for (FactionObject faction : factionsMap.values()) {
-            if (faction.getName().equalsIgnoreCase(name)) {
-                return faction;
-            }
-        }
-        return null;
+        UUID factionId = nameToFactionMap.get(normalizeName(name));
+        return factionId != null ? factionsMap.get(factionId) : null;
     }
 
     @Nullable
@@ -359,13 +404,8 @@ public final class FactionConfigManager {
 
     @Nullable
     public static FactionObject getFactionByFlagChunk(ChunkPos flagChunk) {
-        for (FactionObject faction : factionsMap.values()) {
-            ChunkPos fc = faction.getFlagChunk();
-            if (fc != null && fc.equals(flagChunk)) {
-                return faction;
-            }
-        }
-        return null;
+        UUID factionId = flagChunkToFactionMap.get(flagChunk.toLong());
+        return factionId != null ? factionsMap.get(factionId) : null;
     }
 
     public static boolean claimAdminChunk(ChunkPos chunkPos) {
@@ -414,6 +454,22 @@ public final class FactionConfigManager {
                 adminChunksSet.add(new ChunkPos(chunk.x, chunk.z));
             }
         }
+        if (root.pending_invites != null) {
+            Map<UUID, FactionInviteManager.Invite> loaded = new HashMap<>();
+            for (PendingInviteConfig entry : root.pending_invites) {
+                UUID targetId = parseUuid(entry.target_uuid, "invite target");
+                UUID factionId = parseUuid(entry.faction_uuid, "invite faction");
+                UUID inviterId = parseUuid(entry.inviter_uuid, "invite inviter");
+                if (targetId == null || factionId == null || inviterId == null) {
+                    continue;
+                }
+                if (!factionsMap.containsKey(factionId)) {
+                    continue;
+                }
+                loaded.put(targetId, new FactionInviteManager.Invite(factionId, inviterId, entry.expires_at_ms));
+            }
+            FactionInviteManager.replaceAll(loaded);
+        }
     }
 
     private static FactionConfigRoot buildRoot() {
@@ -455,6 +511,16 @@ public final class FactionConfigManager {
             chunk.x = chunkPos.x;
             chunk.z = chunkPos.z;
             root.admin_chunks.add(chunk);
+        }
+        root.pending_invites = new ArrayList<>();
+        for (Map.Entry<UUID, FactionInviteManager.Invite> inviteEntry
+                : FactionInviteManager.snapshotNonExpired().entrySet()) {
+            PendingInviteConfig invite = new PendingInviteConfig();
+            invite.target_uuid = inviteEntry.getKey().toString();
+            invite.faction_uuid = inviteEntry.getValue().factionId().toString();
+            invite.inviter_uuid = inviteEntry.getValue().inviterId().toString();
+            invite.expires_at_ms = inviteEntry.getValue().expiresAtMs();
+            root.pending_invites.add(invite);
         }
         return root;
     }
@@ -498,6 +564,10 @@ public final class FactionConfigManager {
             }
         }
         return faction;
+    }
+
+    private static String normalizeName(String name) {
+        return name.toLowerCase(Locale.ROOT);
     }
 
     @Nullable
@@ -563,6 +633,7 @@ public final class FactionConfigManager {
     public static final class FactionConfigRoot {
         public List<FactionConfigEntry> factions;
         public List<ChunkConfig> admin_chunks;
+        public List<PendingInviteConfig> pending_invites;
     }
 
     public static final class FactionConfigEntry {
@@ -591,5 +662,12 @@ public final class FactionConfigManager {
     public static final class ChunkConfig {
         public int x;
         public int z;
+    }
+
+    public static final class PendingInviteConfig {
+        public String target_uuid;
+        public String faction_uuid;
+        public String inviter_uuid;
+        public long expires_at_ms;
     }
 }

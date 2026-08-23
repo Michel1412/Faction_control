@@ -1,0 +1,88 @@
+# Faction Control — Architecture configuration
+# Source of truth for supported Minecraft versions, ADRs, and where
+# version-specific implementation notes live.
+#
+# Domain rules (factions, JSON maps, GameMode protection) stay in
+# docs/ARCHITECTURE.md. Loader/API details live under docs/implementations/.
+
+mod:
+  id: faction_control
+  group: com.factioncontrol
+  display_name: Faction Control
+  domain_docs: docs/ARCHITECTURE.md
+  mechanics_docs: docs/UTILITIES.md
+
+supported_versions:
+  - id: "1.20.1"
+    status: current
+    loader: forge
+    loader_major: 47
+    java: 17
+    gradle_plugin: net.minecraftforge.gradle
+    metadata: META-INF/mods.toml
+    source_root: src/main
+    impl_docs: docs/implementations/1.20.1/
+    notes: Production tree. Do not change APIs here to match 1.21.1.
+
+  - id: "1.21.1"
+    status: implemented
+    loader: neoforge
+    loader_major: 21
+    java: 21
+    gradle_plugin: net.neoforged.moddev
+    metadata: META-INF/neoforge.mods.toml
+    source_root: neoforge-1.21.1
+    impl_docs: docs/implementations/1.21.1/
+    notes: NeoForge port of the 1.20.1 domain. Same JSON schema. Build with neoforge-1.21.1/gradlew.
+
+shared:
+  json_config: config/faction_control.json
+  json_schema_docs: docs/UTILITIES.md
+  command_surface: /faction
+  modid: faction_control
+
+adrs:
+  - id: ADR-0001
+    title: Dual-version Gradle multi-project (not Architectury, not two repos)
+    status: accepted
+    file: docs/architecture/adr/0001-dual-version-gradle.md
+  - id: ADR-0002
+    title: Minecraft 1.21.1 uses NeoForge, not Forge
+    status: accepted
+    file: docs/architecture/adr/0002-neoforge-for-1.21.1.md
+  - id: ADR-0003
+    title: Domain vs platform split — isolate loader APIs
+    status: accepted
+    file: docs/architecture/adr/0003-domain-vs-platform.md
+  - id: ADR-0004
+    title: One JSON schema across versions
+    status: accepted
+    file: docs/architecture/adr/0004-shared-json-schema.md
+  - id: ADR-0005
+    title: Item state — NBT on 1.20.1, Data Components on 1.21.1
+    status: accepted
+    file: docs/architecture/adr/0005-item-state-nbt-vs-components.md
+  - id: ADR-0006
+    title: Player flags stay on persistent NBT (not Attachments yet)
+    status: accepted
+    file: docs/architecture/adr/0006-player-persistent-data.md
+  - id: ADR-0007
+    title: Optional Create/TaCZ via reflection, no compile dependency
+    status: accepted
+    file: docs/architecture/adr/0007-optional-compat-reflection.md
+  - id: ADR-0008
+    title: Adventure/Survival GameMode remains the protection primitive
+    status: accepted
+    file: docs/architecture/adr/0008-adventure-survival-protection.md
+  - id: ADR-0009
+    title: Docs layout — architecture.yml + ADRs + per-version folders
+    status: accepted
+    file: docs/architecture/adr/0009-docs-layout.md
+  - id: ADR-0010
+    title: Java 17 for 1.20.1, Java 21 for 1.21.1
+    status: accepted
+    file: docs/architecture/adr/0010-java-toolchains.md
+
+conversion:
+  inventory: docs/implementations/1.21.1/conversion-inventory.md
+  policy: Port behavior 1:1. Do not redesign territory rules during the port.

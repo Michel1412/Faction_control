@@ -72,11 +72,11 @@ public final class TerritoryProtectionHelper {
         }
 
         // Admin safezones: Adventure (baús liberados, quebra bloqueada pelo vanilla); PvP em AdminSafezoneHandler.
-        if (FactionConfigManager.adminChunksSet.contains(chunkPos)) {
+        if (FactionConfigManager.isAdminChunk(chunkPos)) {
             return GameType.ADVENTURE;
         }
 
-        UUID ownerId = FactionConfigManager.chunkToFactionMap.get(chunkPos);
+        UUID ownerId = FactionConfigManager.getChunkOwner(chunkPos);
         if (ownerId == null) {
             return GameType.ADVENTURE;
         }
@@ -91,7 +91,7 @@ public final class TerritoryProtectionHelper {
         if (isAdminChunk(chunkPos)) {
             return false;
         }
-        return FactionConfigManager.chunkToFactionMap.containsKey(chunkPos);
+        return FactionConfigManager.isChunkClaimed(chunkPos);
     }
 
     /**
@@ -116,7 +116,7 @@ public final class TerritoryProtectionHelper {
             return true;
         }
 
-        UUID ownerId = FactionConfigManager.chunkToFactionMap.get(chunkPos);
+        UUID ownerId = FactionConfigManager.getChunkOwner(chunkPos);
         if (ownerId == null) {
             return true;
         }
@@ -143,11 +143,11 @@ public final class TerritoryProtectionHelper {
         }
 
         // Admin chunks: no block break/place/interact restriction (safezone rules handled by AdminSafezoneHandler).
-        if (FactionConfigManager.adminChunksSet.contains(chunkPos)) {
+        if (FactionConfigManager.isAdminChunk(chunkPos)) {
             return null;
         }
 
-        UUID ownerId = FactionConfigManager.chunkToFactionMap.get(chunkPos);
+        UUID ownerId = FactionConfigManager.getChunkOwner(chunkPos);
         if (ownerId == null) {
             return null;
         }
@@ -179,11 +179,11 @@ public final class TerritoryProtectionHelper {
             return null;
         }
 
-        if (FactionConfigManager.adminChunksSet.contains(chunkPos)) {
+        if (FactionConfigManager.isAdminChunk(chunkPos)) {
             return null;
         }
 
-        UUID ownerId = FactionConfigManager.chunkToFactionMap.get(chunkPos);
+        UUID ownerId = FactionConfigManager.getChunkOwner(chunkPos);
         if (ownerId == null || FactionConfigManager.isFactionRaided(ownerId)) {
             return null;
         }
@@ -197,23 +197,23 @@ public final class TerritoryProtectionHelper {
     }
 
     public static boolean isPlayerInsideFactionTerritory(ServerPlayer player, UUID factionId) {
-        UUID chunkOwner = FactionConfigManager.chunkToFactionMap.get(player.chunkPosition());
+        UUID chunkOwner = FactionConfigManager.getChunkOwner(player.chunkPosition());
         return factionId.equals(chunkOwner);
     }
 
     public static boolean isAdminChunk(ChunkPos chunkPos) {
-        return FactionConfigManager.adminChunksSet.contains(chunkPos);
+        return FactionConfigManager.isAdminChunk(chunkPos);
     }
 
     /**
      * Whether the chunk is claimed by the player's faction (domínio).
      */
     public static boolean isPlayerFactionChunk(UUID playerId, ChunkPos chunkPos) {
-        UUID factionId = FactionConfigManager.playerToFactionMap.get(playerId);
+        UUID factionId = FactionConfigManager.getPlayerFactionId(playerId);
         if (factionId == null) {
             return false;
         }
-        return factionId.equals(FactionConfigManager.chunkToFactionMap.get(chunkPos));
+        return factionId.equals(FactionConfigManager.getChunkOwner(chunkPos));
     }
 
     /**
@@ -225,11 +225,11 @@ public final class TerritoryProtectionHelper {
 
     @Nullable
     public static String describeChunkOwner(ChunkPos chunkPos) {
-        if (FactionConfigManager.adminChunksSet.contains(chunkPos)) {
+        if (FactionConfigManager.isAdminChunk(chunkPos)) {
             return ADMIN_OWNER_NAME;
         }
 
-        UUID ownerId = FactionConfigManager.chunkToFactionMap.get(chunkPos);
+        UUID ownerId = FactionConfigManager.getChunkOwner(chunkPos);
         if (ownerId == null) {
             return "Zona Livre";
         }

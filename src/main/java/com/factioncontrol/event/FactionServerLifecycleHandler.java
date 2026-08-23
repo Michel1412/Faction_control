@@ -56,7 +56,7 @@ public final class FactionServerLifecycleHandler {
 
         LOGGER.info(
                 "Faction Control loaded {} faction(s) from {}",
-                FactionConfigManager.factionsMap.size(),
+                FactionConfigManager.factionCount(),
 
                 FactionConfigManager.getConfigPath()
 

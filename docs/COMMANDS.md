@@ -15,7 +15,7 @@ Persistent data is written to `config/faction_control.json` after most mutating 
 | **OP (Admin Mode)** | OP level **2+**, default play mode | Bypasses territory GameMode sync and event denial |
 | **OP (Player Mode)** | OP level **2+**, `/faction playmode true` | Same restrictions as a normal player |
 
-OP play mode is stored in the player's persistent NBT under `faction_control.play_as_player`.
+OP play mode is stored in the player's persistent data under `faction_control.play_as_player` ([1.20.1](implementations/1.20.1/player-data.md), [1.21.1](implementations/1.21.1/player-data.md)).
 
 ---
 
@@ -46,7 +46,7 @@ OP play mode is stored in the player's persistent NBT under `faction_control.pla
 | **Permission** | Faction Official |
 
 **Backend behavior:**
-- Creates an in-memory invite via `FactionInviteManager.createInvite` (inviter UUID, faction UUID, expiry).
+- Creates an invite via `FactionInviteManager.createInvite` and writes it to `pending_invites` in JSON (TTL 5 minutes, survives restart).
 - Sends a clickable `[ACCEPT]` chat message to the target (`/faction accept`).
 
 ---
@@ -66,18 +66,44 @@ OP play mode is stored in the player's persistent NBT under `faction_control.pla
 
 ## Administrative Commands (OP Level 2+)
 
-All commands below use `.requires(source -> source.hasPermission(2))`.
+All commands below use `.requires(FactionPermissions::isAdmin)` (vanilla level 2) unless noted.
 
 ### `/faction create <nome> <cor>`
 
 | | |
 |---|---|
-| **Permission** | OP 2+ (player executor) |
+| **Visibility** | Vanilla level **1** (LuckPerms) **or** player already unlocked |
+| **Runtime gate** | NBT `faction_control.can_create_faction` **or** Forge node `faction_control.create_faction` **or** OP 2+ |
 
 **Backend behavior:**
+- Rejects players who already belong to a faction.
 - Validates unique faction name and `#RRGGBB` color hex.
-- Creates a `FactionObject` with a deterministic UUID, sets executor as Official/member.
-- Persists to `factions` array in JSON.
+- Creates a `FactionObject`, sets executor as Official/member, persists JSON.
+
+Staff with level 1 still cannot create unless the NBT flag or LuckPerms node is set. OP 2+ always can.
+
+### `/faction cancreate <player>`
+
+| | |
+|---|---|
+| **Permission** | Vanilla level **1** (LuckPerms, quest reward, console) |
+
+Shows NBT flag and effective unlock (flag / LuckPerms node / OP).
+
+#### `/faction cancreate <player> toggle`
+#### `/faction cancreate <player> <true|false>`
+
+Sets or inverts persistent NBT `can_create_faction`. Quest example:
+
+```
+/faction cancreate Steve true
+```
+
+LuckPerms node (no command needed):
+
+```
+lp user Steve permission set faction_control.create_faction true
+```
 
 ---
 
@@ -201,7 +227,8 @@ All commands below use `.requires(source -> source.hasPermission(2))`.
 |---------|:------:|:------:|:--------:|:---------------:|:----------------:|
 | `set flag` | | | ✓ | ✓* | ✓ |
 | `invite` / `accept` | | ✓ | ✓ | ✓* | ✓ |
-| `create` | | | | ✓ | ✓ |
+| `create` | ✓† | | | ✓ | ✓ |
+| `cancreate` | | | | ✓‡ | ✓‡ |
 | `delete_force` | | | | ✓ | ✓ |
 | `join_forced` / `leave_force` | | | | ✓ | ✓ |
 | `set_leader` | | | | ✓ | ✓ |
@@ -210,11 +237,14 @@ All commands below use `.requires(source -> source.hasPermission(2))`.
 | `list` / `info` / `reload` | | | | ✓ | ✓ |
 | `playmode` / `debug clicks` | | | | ✓ | ✓ |
 
-\*OP must be the faction Official **and** in Player Mode to experience the same territory restrictions as members.
+\*OP must be the faction Official **and** in Player Mode to experience the same territory restrictions as members.  
+†Requires NBT flag, LuckPerms node `faction_control.create_faction`, or OP 2. Level 1 only makes the command visible.  
+‡Vanilla level **1** (LuckPerms / quest / console).
 
 ---
 
 ## Related Documentation
 
 - Territory mechanics and JSON schema: [UTILITIES.md](UTILITIES.md)
+- Server architecture, hot paths, failure points: [ARCHITECTURE.md](ARCHITECTURE.md)
 - Server design philosophy: [README.md](../README.md)

@@ -1,12 +1,13 @@
 # Faction Control
 
-**Minecraft Forge 1.20.1** mod — a faction and chunk protection system built around anchor flag blocks, JSON-backed territory maps, and Adventure-mode-native access control.
+**Minecraft Forge 1.20.1** mod — a faction and chunk protection system built around anchor flag blocks, JSON-backed territory maps, and Adventure-mode-native access control. A **1.21.1 NeoForge** port lives in `neoforge-1.21.1/`.
 
 | Property | Value |
 |----------|-------|
 | Mod ID | `faction_control` |
-| Loader | Forge 47+ |
-| Config | `config/faction_control.json` |
+| Current loader | Forge 47+ (Minecraft 1.20.1) |
+| 1.21.1 loader | NeoForge 21.1 (see `neoforge-1.21.1/`) |
+| Config | `config/faction_control.json` (same schema on both versions) |
 | Version | See `gradle.properties` |
 
 ---
@@ -69,9 +70,14 @@ See [docs/UTILITIES.md](docs/UTILITIES.md) for full mechanical detail.
 
 | Document | Contents |
 |----------|----------|
+| [docs/architecture/architecture.yml](docs/architecture/architecture.yml) | Supported versions, loaders, ADR index |
+| [docs/architecture/adr/](docs/architecture/adr/) | Architecture Decision Records (dual version, NeoForge, JSON, item data) |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Domain layers, tick priority, create-faction gate, failure points |
+| [docs/implementations/1.20.1/](docs/implementations/1.20.1/) | Forge 1.20.1 APIs (events, NBT, SimpleChannel, resources) |
+| [docs/implementations/1.21.1/](docs/implementations/1.21.1/) | NeoForge 1.21.1 conversion inventory and API maps |
 | [docs/COMMANDS.md](docs/COMMANDS.md) | All `/faction` commands, permissions, backend behavior |
-| [docs/UTILITIES.md](docs/UTILITIES.md) | JSON schema, NBT upgrades, raid timer, protection pipeline |
-| [docs/COMANDOS.md](docs/COMANDOS.md) | Portuguese command reference (legacy) |
+| [docs/COMANDOS.md](docs/COMANDOS.md) | Referência de comandos em português |
+| [docs/UTILITIES.md](docs/UTILITIES.md) | JSON schema, raid timer, protection pipeline (domain) |
 
 ---
 
@@ -85,7 +91,15 @@ Requirements: **Java 17**, Gradle wrapper included.
 
 Output JAR: `build/libs/faction_control-<version>.jar`
 
-Development client:
+**1.21.1 (NeoForge)** is a separate project. From `neoforge-1.21.1/` (Java 21):
+
+```bash
+./gradlew build
+```
+
+Output JAR: `neoforge-1.21.1/build/libs/faction_control-1.21.1-<version>.jar`
+
+Development client (1.20.1):
 
 ```bash
 ./gradlew runClient
