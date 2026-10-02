@@ -32,46 +32,59 @@ import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
 public final class FactionCommands {
+    private static final Map<UUID, DeleteConfirmation> DELETE_CONFIRMATIONS = new HashMap<>();
+
     private static final SimpleCommandExceptionType NOT_A_PLAYER =
-            new SimpleCommandExceptionType(Component.literal("Este comando so pode ser usado por jogadores."));
+            new SimpleCommandExceptionType(Component.translatable("command.faction_control.not_a_player"));
     private static final SimpleCommandExceptionType NOT_IN_FACTION =
-            new SimpleCommandExceptionType(Component.literal("Voce nao pertence a nenhuma faccao."));
+            new SimpleCommandExceptionType(Component.translatable("command.faction_control.not_in_faction"));
     private static final SimpleCommandExceptionType NOT_OFFICIAL =
-            new SimpleCommandExceptionType(Component.literal("Apenas o Oficial da faccao pode executar este comando."));
+            new SimpleCommandExceptionType(Component.translatable("command.faction_control.not_official"));
     private static final SimpleCommandExceptionType FACTION_NOT_FOUND =
-            new SimpleCommandExceptionType(Component.literal("Faccao nao encontrada."));
+            new SimpleCommandExceptionType(Component.translatable("command.faction_control.faction_not_found"));
     private static final SimpleCommandExceptionType FLAG_ALREADY_ACTIVE =
-            new SimpleCommandExceptionType(Component.literal("Sua faccao ja possui uma bandeira ativa no mundo."));
+            new SimpleCommandExceptionType(Component.translatable("command.faction_control.flag_already_active"));
     private static final SimpleCommandExceptionType TARGET_NOT_IN_FACTION =
-            new SimpleCommandExceptionType(Component.literal("Este jogador nao pertence a faccao especificada."));
+            new SimpleCommandExceptionType(Component.translatable("command.faction_control.target_not_in_faction"));
     private static final SimpleCommandExceptionType TARGET_HAS_NO_FACTION =
-            new SimpleCommandExceptionType(Component.literal("Este jogador nao pertence a nenhuma faccao."));
+            new SimpleCommandExceptionType(Component.translatable("command.faction_control.target_has_no_faction"));
     private static final SimpleCommandExceptionType NOT_IN_OVERWORLD =
-            new SimpleCommandExceptionType(Component.literal("Este comando so pode ser usado no Overworld."));
+            new SimpleCommandExceptionType(Component.translatable("command.faction_control.not_in_overworld"));
     private static final SimpleCommandExceptionType ADMIN_CHUNK_ALREADY_CLAIMED =
-            new SimpleCommandExceptionType(Component.literal("Este chunk ja e uma Safezone de administradores."));
+            new SimpleCommandExceptionType(Component.translatable("command.faction_control.admin_chunk_already_claimed"));
     private static final SimpleCommandExceptionType NOT_ADMIN_CHUNK =
-            new SimpleCommandExceptionType(Component.literal("Este chunk nao e uma Safezone de administradores."));
+            new SimpleCommandExceptionType(Component.translatable("command.faction_control.not_admin_chunk"));
     private static final SimpleCommandExceptionType CHUNK_NOT_CLAIMED_BY_FACTION =
-            new SimpleCommandExceptionType(Component.literal("Este chunk nao pertence a faccao especificada."));
+            new SimpleCommandExceptionType(Component.translatable("command.faction_control.chunk_not_claimed_by_faction"));
     private static final SimpleCommandExceptionType FACTION_NAME_TAKEN =
-            new SimpleCommandExceptionType(Component.literal("Ja existe uma faccao com este nome."));
+            new SimpleCommandExceptionType(Component.translatable("command.faction_control.faction_name_taken"));
     private static final SimpleCommandExceptionType INVALID_HEX_COLOR =
-            new SimpleCommandExceptionType(Component.literal("Cor HEX invalida. Use o formato #RRGGBB (ex: #FF0000)."));
+            new SimpleCommandExceptionType(Component.translatable("command.faction_control.invalid_hex_color"));
     private static final SimpleCommandExceptionType TARGET_ALREADY_IN_FACTION =
-            new SimpleCommandExceptionType(Component.literal("Este jogador ja pertence a uma faccao."));
+            new SimpleCommandExceptionType(Component.translatable("command.faction_control.target_already_in_faction"));
+    private static final SimpleCommandExceptionType PLAYER_NOT_FOUND =
+            new SimpleCommandExceptionType(Component.translatable("command.faction_control.player_not_found"));
     private static final SimpleCommandExceptionType NO_PENDING_INVITE =
-            new SimpleCommandExceptionType(Component.literal("Voce nao possui convite pendente."));
+            new SimpleCommandExceptionType(Component.translatable("command.faction_control.no_pending_invite"));
     private static final SimpleCommandExceptionType INVITE_EXPIRED =
-            new SimpleCommandExceptionType(Component.literal("Seu convite expirou. Peca um novo convite ao Oficial."));
+            new SimpleCommandExceptionType(Component.translatable("command.faction_control.invite_expired"));
     private static final SimpleCommandExceptionType CANNOT_CREATE_FACTION =
-            new SimpleCommandExceptionType(Component.literal(
-                    "Voce ainda nao pode criar uma faccao. Conclua a quest ou peca a um staff."));
+            new SimpleCommandExceptionType(Component.translatable("command.faction_control.cannot_create_faction"));
+    private static final SimpleCommandExceptionType OFFICIAL_CANNOT_LEAVE =
+            new SimpleCommandExceptionType(Component.translatable("command.faction_control.official_cannot_leave"));
+    private static final SimpleCommandExceptionType CANNOT_KICK_SELF =
+            new SimpleCommandExceptionType(Component.translatable("command.faction_control.cannot_kick_self"));
+    private static final SimpleCommandExceptionType NO_DELETE_CONFIRMATION =
+            new SimpleCommandExceptionType(Component.translatable("command.faction_control.no_delete_confirmation"));
+    private static final SimpleCommandExceptionType DELETE_CONFIRMATION_EXPIRED =
+            new SimpleCommandExceptionType(Component.translatable("command.faction_control.delete_confirmation_expired"));
 
     private FactionCommands() {
     }
@@ -89,6 +102,20 @@ public final class FactionCommands {
                                 ))))
                 .then(Commands.literal("accept")
                         .executes(context -> acceptInvite(context.getSource())))
+                .then(Commands.literal("leave")
+                        .executes(context -> leaveFaction(context.getSource())))
+                .then(Commands.literal("kick")
+                        .then(Commands.argument("player", StringArgumentType.word())
+                                .executes(context -> kickMember(
+                                        context.getSource(),
+                                        StringArgumentType.getString(context, "player")
+                                ))))
+                .then(Commands.literal("members")
+                        .executes(context -> listMembers(context.getSource())))
+                .then(Commands.literal("delete")
+                        .executes(context -> requestFactionDeletion(context.getSource())))
+                .then(Commands.literal("confirm")
+                        .executes(context -> confirmFactionDeletion(context.getSource())))
                 .then(Commands.literal("create")
                         .requires(FactionPermissions::canSeeCreateCommand)
                         .then(Commands.argument("nome", StringArgumentType.word())
@@ -214,7 +241,7 @@ public final class FactionCommands {
             throw NOT_OFFICIAL.create();
         }
         if (player.getUUID().equals(target.getUUID())) {
-            source.sendFailure(Component.literal("Voce nao pode convidar a si mesmo.")
+            source.sendFailure(Component.translatable("command.faction_control.cannot_invite_self")
                     .withStyle(ChatFormatting.RED));
             return 0;
         }
@@ -225,7 +252,7 @@ public final class FactionCommands {
         FactionInviteManager.createInvite(target.getUUID(), faction.getFactionId(), player.getUUID());
         FactionChat.sendInviteMessage(target, faction, player.getGameProfile().getName());
         FactionChat.sendSuccess(player, faction,
-                "Convite enviado para " + target.getGameProfile().getName() + ".");
+                Component.translatable("command.faction_control.invite_sent", target.getGameProfile().getName()));
         return 1;
     }
 
@@ -251,20 +278,177 @@ public final class FactionCommands {
         }
 
         if (!manager.addMember(faction.getFactionId(), player.getUUID())) {
-            source.sendFailure(Component.literal("Nao foi possivel entrar na faccao.")
+            source.sendFailure(Component.translatable("command.faction_control.join_failed")
                     .withStyle(ChatFormatting.RED));
             return 0;
         }
 
-        FactionChat.sendSuccess(player, faction, "Voce entrou na faccao!");
+        FactionChat.sendSuccess(player, faction, Component.translatable("faction_control.chat.joined"));
         FactionSync.sendTo(player);
 
         ServerPlayer inviter = source.getServer().getPlayerList().getPlayer(invite.inviterId());
         if (inviter != null) {
             FactionChat.sendSuccess(inviter, faction,
-                    player.getGameProfile().getName() + " aceitou o convite e entrou na faccao.");
+                    Component.translatable("faction_control.chat.invite_accepted", player.getGameProfile().getName()));
         }
 
+        return 1;
+    }
+
+    private static int leaveFaction(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = requirePlayer(source);
+        FactionManager manager = FactionManager.get(source.getServer());
+        FactionObject faction = manager.getFactionOfMember(player.getUUID());
+        if (faction == null) {
+            throw NOT_IN_FACTION.create();
+        }
+        if (faction.isLeader(player.getUUID())) {
+            throw OFFICIAL_CANNOT_LEAVE.create();
+        }
+        if (!manager.kickMember(faction.getFactionId(), player.getUUID())) {
+            throw NOT_IN_FACTION.create();
+        }
+
+        FactionChat.sendSuccess(player, faction, Component.translatable("faction_control.chat.left"));
+        FactionSync.sendTo(player);
+        return 1;
+    }
+
+    private static int kickMember(CommandSourceStack source, String name) throws CommandSyntaxException {
+        ServerPlayer player = requirePlayer(source);
+        FactionManager manager = FactionManager.get(source.getServer());
+        FactionObject faction = manager.getFactionOfMember(player.getUUID());
+        if (faction == null) {
+            throw NOT_IN_FACTION.create();
+        }
+        if (!faction.isLeader(player.getUUID())) {
+            throw NOT_OFFICIAL.create();
+        }
+
+        var cache = source.getServer().getProfileCache();
+        if (cache == null) {
+            throw PLAYER_NOT_FOUND.create();
+        }
+        GameProfile profile = cache.get(name).orElse(null);
+        if (profile == null) {
+            throw PLAYER_NOT_FOUND.create();
+        }
+
+        UUID targetId = profile.getId();
+        if (player.getUUID().equals(targetId)) {
+            throw CANNOT_KICK_SELF.create();
+        }
+        if (!faction.isMember(targetId)) {
+            throw TARGET_NOT_IN_FACTION.create();
+        }
+        if (!manager.kickMember(faction.getFactionId(), targetId)) {
+            throw TARGET_NOT_IN_FACTION.create();
+        }
+
+        FactionChat.sendSuccess(player, faction,
+                Component.translatable("faction_control.chat.kicked_name", profile.getName()));
+        ServerPlayer target = source.getServer().getPlayerList().getPlayer(targetId);
+        if (target != null) {
+            FactionChat.sendError(target, Component.translatable("faction_control.chat.you_were_kicked", faction.getName()));
+            FactionSync.sendTo(target);
+        }
+        return 1;
+    }
+
+    private static int listMembers(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = requirePlayer(source);
+        FactionManager manager = FactionManager.get(source.getServer());
+        FactionObject faction = manager.getFactionOfMember(player.getUUID());
+        if (faction == null) {
+            throw NOT_IN_FACTION.create();
+        }
+
+        MinecraftServer server = source.getServer();
+        List<UUID> members = new ArrayList<>(faction.getMembers());
+        members.sort(Comparator.comparing(memberId -> resolvePlayerName(server, memberId), String.CASE_INSENSITIVE_ORDER));
+        source.sendSuccess(() -> Component.translatable("command.faction_control.members_header", faction.getName())
+                .withStyle(ChatFormatting.GOLD), false);
+
+        for (UUID memberId : members) {
+            boolean online = server.getPlayerList().getPlayer(memberId) != null;
+            boolean official = faction.isLeader(memberId);
+            MutableComponent line = Component.literal("- " + resolvePlayerName(server, memberId))
+                    .withStyle(online ? ChatFormatting.GREEN : ChatFormatting.GRAY);
+            if (official) {
+                line.append(Component.translatable("command.faction_control.member_official")
+                        .withStyle(ChatFormatting.GOLD));
+            }
+            line.append(Component.translatable(online
+                            ? "command.faction_control.member_online"
+                            : "command.faction_control.member_offline")
+                    .withStyle(online ? ChatFormatting.GREEN : ChatFormatting.DARK_GRAY));
+            source.sendSuccess(() -> line, false);
+        }
+        return members.size();
+    }
+
+    private static int requestFactionDeletion(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = requirePlayer(source);
+        FactionManager manager = FactionManager.get(source.getServer());
+        FactionObject faction = manager.getFactionOfMember(player.getUUID());
+        if (faction == null) {
+            throw NOT_IN_FACTION.create();
+        }
+        if (!faction.isLeader(player.getUUID())) {
+            throw NOT_OFFICIAL.create();
+        }
+
+        DELETE_CONFIRMATIONS.put(
+                player.getUUID(),
+                new DeleteConfirmation(faction.getFactionId(), System.currentTimeMillis() + 30_000L)
+        );
+        source.sendSuccess(
+                () -> Component.translatable("command.faction_control.delete_warning", faction.getName())
+                        .withStyle(ChatFormatting.RED),
+                false
+        );
+        return 1;
+    }
+
+    private static int confirmFactionDeletion(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = requirePlayer(source);
+        DeleteConfirmation confirmation = DELETE_CONFIRMATIONS.remove(player.getUUID());
+        if (confirmation == null) {
+            throw NO_DELETE_CONFIRMATION.create();
+        }
+        if (confirmation.expiresAtMs() < System.currentTimeMillis()) {
+            throw DELETE_CONFIRMATION_EXPIRED.create();
+        }
+
+        MinecraftServer server = source.getServer();
+        FactionManager manager = FactionManager.get(server);
+        FactionObject faction = manager.getFactionOfMember(player.getUUID());
+        if (faction == null || !faction.getFactionId().equals(confirmation.factionId())) {
+            throw NO_DELETE_CONFIRMATION.create();
+        }
+        if (!faction.isLeader(player.getUUID())) {
+            throw NOT_OFFICIAL.create();
+        }
+
+        String factionName = faction.getName();
+        Set<UUID> members = Set.copyOf(faction.getMembers());
+        FlagHelper.stripFactionFlag(server, faction);
+        manager.deleteFaction(faction.getFactionId());
+
+        for (UUID memberId : members) {
+            ServerPlayer member = server.getPlayerList().getPlayer(memberId);
+            if (member == null) {
+                continue;
+            }
+            FactionSync.sendTo(member);
+            if (!member.getUUID().equals(player.getUUID())) {
+                FactionChat.sendError(member,
+                        Component.translatable("faction_control.chat.deleted_by_official", factionName));
+            }
+        }
+
+        source.sendSuccess(() -> Component.translatable("command.faction_control.deleted_by_you", factionName)
+                .withStyle(ChatFormatting.RED), false);
         return 1;
     }
 
@@ -287,26 +471,27 @@ public final class FactionCommands {
         BlockPos pos = player.blockPosition();
         BlockPos above = pos.above();
         if (!source.getServer().overworld().getBlockState(pos).canBeReplaced()) {
-            source.sendFailure(Component.literal("Nao ha espaco para spawnar a bandeira nesta posicao.")
+            source.sendFailure(Component.translatable("command.faction_control.flag_no_space")
                     .withStyle(ChatFormatting.RED));
             return 0;
         }
         if (!source.getServer().overworld().getBlockState(above).canBeReplaced()
                 && !source.getServer().overworld().getBlockState(above).isAir()) {
-            source.sendFailure(Component.literal("A bandeira precisa de 2 blocos de altura livre acima da posicao.")
+            source.sendFailure(Component.translatable("command.faction_control.flag_needs_height")
                     .withStyle(ChatFormatting.RED));
             return 0;
         }
 
         if (!FlagHelper.spawnFactionFlag(player, faction)) {
-            source.sendFailure(Component.literal("Falha ao spawnar a bandeira.").withStyle(ChatFormatting.RED));
+            source.sendFailure(Component.translatable("command.faction_control.flag_spawn_failed")
+                    .withStyle(ChatFormatting.RED));
             return 0;
         }
 
         ChunkPos chunkPos = player.chunkPosition();
-        FactionChat.sendSuccess(player, faction,
-                "Bandeira posicionada em [" + pos.getX() + ", " + pos.getY() + ", " + pos.getZ()
-                        + "]! Chunk [" + chunkPos.x + ", " + chunkPos.z + "] claimado.");
+        FactionChat.sendSuccess(player, faction, Component.translatable(
+                "faction_control.chat.flag_placed",
+                pos.getX(), pos.getY(), pos.getZ(), chunkPos.x, chunkPos.z));
         FactionSync.sendTo(player);
         return 1;
     }
@@ -331,7 +516,7 @@ public final class FactionCommands {
         int color = FactionConfigManager.parseColorHex(hexColor);
         FactionObject faction = manager.createFaction(name, color, player.getUUID());
 
-        FactionChat.sendSuccess(player, faction, "Faccao criada! Voce e o Oficial.");
+        FactionChat.sendSuccess(player, faction, Component.translatable("faction_control.chat.faction_created"));
         FactionSync.sendTo(player);
         return 1;
     }
@@ -340,9 +525,11 @@ public final class FactionCommands {
         boolean allowed = FactionPlayerData.getCanCreateFaction(target);
         boolean effective = FactionPermissions.canCreateFaction(target);
         source.sendSuccess(
-                () -> Component.literal(target.getGameProfile().getName()
-                                + " | flag can_create_faction: " + allowed
-                                + " | efetivo (flag/LuckPerms/OP): " + effective)
+                () -> Component.translatable(
+                                "command.faction_control.cancreate_status",
+                                target.getGameProfile().getName(),
+                                allowed,
+                                effective)
                         .withStyle(ChatFormatting.AQUA),
                 false
         );
@@ -360,17 +547,20 @@ public final class FactionCommands {
 
     private static int sendCanCreateResult(CommandSourceStack source, ServerPlayer target, boolean allowed) {
         ChatFormatting color = allowed ? ChatFormatting.GREEN : ChatFormatting.GRAY;
-        String status = allowed ? "LIBERADO" : "BLOQUEADO";
+        Component status = Component.translatable(allowed
+                ? "command.faction_control.status.allowed"
+                : "command.faction_control.status.blocked");
         source.sendSuccess(
-                () -> Component.literal("Criacao de faccao de "
-                                + target.getGameProfile().getName() + ": " + status)
+                () -> Component.translatable(
+                                "command.faction_control.cancreate_result",
+                                target.getGameProfile().getName(),
+                                status)
                         .withStyle(color),
                 true
         );
-        target.sendSystemMessage(Component.literal(
-                allowed
-                        ? "Voce agora pode criar uma faccao com /faction create <nome> <#RRGGBB>."
-                        : "Voce nao pode mais criar uma faccao."
+        target.sendSystemMessage(Component.translatable(allowed
+                ? "command.faction_control.cancreate_allowed"
+                : "command.faction_control.cancreate_denied"
         ).withStyle(color));
         return 1;
     }
@@ -398,8 +588,7 @@ public final class FactionCommands {
             }
         }
 
-        source.sendSuccess(() -> Component.literal(
-                        "A faccao " + factionName + " foi deletada permanentemente.")
+        source.sendSuccess(() -> Component.translatable("command.faction_control.deleted_permanent", factionName)
                 .withStyle(ChatFormatting.RED), true);
         return 1;
     }
@@ -415,13 +604,13 @@ public final class FactionCommands {
             throw TARGET_HAS_NO_FACTION.create();
         }
 
-        source.sendSuccess(() -> Component.literal("Jogador ")
-                .append(Component.literal(target.getGameProfile().getName()).withStyle(ChatFormatting.YELLOW))
-                .append(Component.literal(" foi removido da faccao "))
-                .append(FactionChat.factionPrefix(faction))
-                .append(Component.literal(".").withStyle(ChatFormatting.GRAY)), true);
+        source.sendSuccess(() -> Component.translatable(
+                        "command.faction_control.leave_force",
+                        Component.literal(target.getGameProfile().getName()).withStyle(ChatFormatting.YELLOW),
+                        FactionChat.factionPrefix(faction))
+                .withStyle(ChatFormatting.GRAY), true);
 
-        FactionChat.sendSuccess(target, faction, "Voce foi removido da faccao por um administrador.");
+        FactionChat.sendSuccess(target, faction, Component.translatable("faction_control.chat.removed_by_admin"));
         FactionSync.sendTo(target);
         return 1;
     }
@@ -437,10 +626,11 @@ public final class FactionCommands {
 
         manager.forceJoinFaction(player.getUUID(), faction.getFactionId());
 
-        source.sendSuccess(() -> Component.literal("Voce entrou na faccao ")
-                .append(Component.literal(faction.getName())
-                        .withStyle(style -> style.withColor(net.minecraft.network.chat.TextColor.fromRgb(faction.getColor()))))
-                .append(Component.literal(".")), false);
+        source.sendSuccess(() -> Component.translatable(
+                        "command.faction_control.joined_forced",
+                        Component.literal(faction.getName())
+                                .withStyle(style -> style.withColor(net.minecraft.network.chat.TextColor.fromRgb(faction.getColor()))))
+                , false);
 
         FactionSync.sendTo(player);
         return 1;
@@ -462,13 +652,13 @@ public final class FactionCommands {
             throw FACTION_NOT_FOUND.create();
         }
 
-        source.sendSuccess(() -> Component.literal("Jogador ")
-                .append(Component.literal(target.getGameProfile().getName()).withStyle(ChatFormatting.YELLOW))
-                .append(Component.literal(" foi definido como Oficial de "))
-                .append(FactionChat.factionPrefix(faction))
-                .append(Component.literal(".").withStyle(ChatFormatting.GRAY)), true);
+        source.sendSuccess(() -> Component.translatable(
+                        "command.faction_control.set_leader",
+                        Component.literal(target.getGameProfile().getName()).withStyle(ChatFormatting.YELLOW),
+                        FactionChat.factionPrefix(faction))
+                .withStyle(ChatFormatting.GRAY), true);
 
-        FactionChat.sendSuccess(target, faction, "Voce foi promovido a Oficial da faccao!");
+        FactionChat.sendSuccess(target, faction, Component.translatable("faction_control.chat.promoted"));
         FactionSync.sendTo(target);
         return 1;
     }
@@ -484,9 +674,10 @@ public final class FactionCommands {
         }
 
         manager.claimAdminChunk(chunkPos);
-        source.sendSuccess(() -> Component.literal("Chunk ")
-                .append(Component.literal(chunkPos.x + ", " + chunkPos.z).withStyle(ChatFormatting.AQUA))
-                .append(Component.literal(" registrado como Safezone de administradores.").withStyle(ChatFormatting.GREEN)), true);
+        source.sendSuccess(() -> Component.translatable(
+                        "command.faction_control.admin_claim",
+                        chunkPos.x + ", " + chunkPos.z)
+                .withStyle(ChatFormatting.GREEN), true);
         return 1;
     }
 
@@ -501,9 +692,10 @@ public final class FactionCommands {
         }
 
         manager.unclaimAdminChunk(chunkPos);
-        source.sendSuccess(() -> Component.literal("Chunk ")
-                .append(Component.literal(chunkPos.x + ", " + chunkPos.z).withStyle(ChatFormatting.AQUA))
-                .append(Component.literal(" removido da Safezone.").withStyle(ChatFormatting.GRAY)), true);
+        source.sendSuccess(() -> Component.translatable(
+                        "command.faction_control.admin_unclaim",
+                        chunkPos.x + ", " + chunkPos.z)
+                .withStyle(ChatFormatting.GRAY), true);
         return 1;
     }
 
@@ -519,11 +711,11 @@ public final class FactionCommands {
 
         manager.forceClaimChunk(faction.getFactionId(), chunkPos);
 
-        source.sendSuccess(() -> Component.literal("Chunk ")
-                .append(Component.literal(chunkPos.x + ", " + chunkPos.z).withStyle(ChatFormatting.AQUA))
-                .append(Component.literal(" claimado para "))
-                .append(FactionChat.factionPrefix(faction))
-                .append(Component.literal(".").withStyle(ChatFormatting.GREEN)), true);
+        source.sendSuccess(() -> Component.translatable(
+                        "command.faction_control.admin_setchunk",
+                        chunkPos.x + ", " + chunkPos.z,
+                        FactionChat.factionPrefix(faction))
+                .withStyle(ChatFormatting.GREEN), true);
         return 1;
     }
 
@@ -541,11 +733,11 @@ public final class FactionCommands {
             throw CHUNK_NOT_CLAIMED_BY_FACTION.create();
         }
 
-        source.sendSuccess(() -> Component.literal("Chunk ")
-                .append(Component.literal(chunkPos.x + ", " + chunkPos.z).withStyle(ChatFormatting.AQUA))
-                .append(Component.literal(" removido de "))
-                .append(FactionChat.factionPrefix(faction))
-                .append(Component.literal(".").withStyle(ChatFormatting.GRAY)), true);
+        source.sendSuccess(() -> Component.translatable(
+                        "command.faction_control.admin_removechunk",
+                        chunkPos.x + ", " + chunkPos.z,
+                        FactionChat.factionPrefix(faction))
+                .withStyle(ChatFormatting.GRAY), true);
         return 1;
     }
 
@@ -556,18 +748,19 @@ public final class FactionCommands {
         factions.sort(Comparator.comparing(faction -> faction.getName().toLowerCase()));
 
         if (factions.isEmpty()) {
-            source.sendSuccess(() -> Component.literal("Nenhuma faccao registrada.")
+            source.sendSuccess(() -> Component.translatable("command.faction_control.no_factions")
                     .withStyle(ChatFormatting.GRAY), false);
             return 0;
         }
 
-        source.sendSuccess(() -> Component.literal("=== Faccoes ===").withStyle(ChatFormatting.GOLD), false);
+        source.sendSuccess(() -> Component.translatable("command.faction_control.faction_list_header")
+                .withStyle(ChatFormatting.GOLD), false);
 
         for (FactionObject faction : factions) {
             int totalMembers = faction.getMembers().size();
             int onlineMembers = countOnlineMembers(server, faction);
             MutableComponent line = FactionChat.factionPrefix(faction)
-                    .append(Component.literal("Membros: " + onlineMembers + "/" + totalMembers)
+                    .append(Component.translatable("command.faction_control.member_count", onlineMembers, totalMembers)
                             .withStyle(ChatFormatting.GRAY));
             source.sendSuccess(() -> line, false);
         }
@@ -583,20 +776,20 @@ public final class FactionCommands {
         }
 
         MinecraftServer server = source.getServer();
-        source.sendSuccess(() -> Component.literal("=== Info: " + faction.getName() + " ===")
+        source.sendSuccess(() -> Component.translatable("command.faction_control.info_header", faction.getName())
                 .withStyle(ChatFormatting.GOLD), false);
         source.sendSuccess(() -> FactionChat.factionPrefix(faction)
                 .append(Component.literal(faction.getName())), false);
-        source.sendSuccess(() -> Component.literal("Oficial: ")
+        source.sendSuccess(() -> Component.translatable("command.faction_control.info_official")
                 .withStyle(ChatFormatting.GRAY)
                 .append(formatLeader(server, faction)), false);
-        source.sendSuccess(() -> Component.literal("Bandeira: ")
+        source.sendSuccess(() -> Component.translatable("command.faction_control.info_flag")
                 .withStyle(ChatFormatting.GRAY)
-                .append(Component.literal(formatFlagLocation(server, faction)).withStyle(ChatFormatting.WHITE)), false);
-        source.sendSuccess(() -> Component.literal("Estado: ")
+                .append(formatFlagLocation(server, faction).withStyle(ChatFormatting.WHITE)), false);
+        source.sendSuccess(() -> Component.translatable("command.faction_control.info_state")
                 .withStyle(ChatFormatting.GRAY)
                 .append(Component.literal(faction.getFlagState().name()).withStyle(ChatFormatting.WHITE)), false);
-        source.sendSuccess(() -> Component.literal("Chunks: ")
+        source.sendSuccess(() -> Component.translatable("command.faction_control.info_chunks")
                 .withStyle(ChatFormatting.GRAY)
                 .append(Component.literal(String.valueOf(manager.getFactionClaims(faction.getFactionId()).size()))
                         .withStyle(ChatFormatting.WHITE)), false);
@@ -606,25 +799,25 @@ public final class FactionCommands {
     private static MutableComponent formatLeader(MinecraftServer server, FactionObject faction) {
         UUID leaderId = faction.getLeaderId();
         if (leaderId == null) {
-            return Component.literal("Nenhum").withStyle(ChatFormatting.DARK_GRAY);
+            return Component.translatable("command.faction_control.none").withStyle(ChatFormatting.DARK_GRAY);
         }
         return Component.literal(resolvePlayerName(server, leaderId)).withStyle(ChatFormatting.YELLOW);
     }
 
-    private static String formatFlagLocation(MinecraftServer server, FactionObject faction) {
+    private static MutableComponent formatFlagLocation(MinecraftServer server, FactionObject faction) {
         BlockPos pos = faction.getFlagBlockPos();
         if (pos != null) {
-            return pos.getX() + ", " + pos.getY() + ", " + pos.getZ();
+            return Component.literal(pos.getX() + ", " + pos.getY() + ", " + pos.getZ());
         }
         ChunkPos chunk = faction.getFlagChunk();
         if (chunk != null) {
             BlockPos found = FlagHelper.findFlagBlockPos(server.overworld(), chunk);
             if (found != null) {
-                return found.getX() + ", " + found.getY() + ", " + found.getZ();
+                return Component.literal(found.getX() + ", " + found.getY() + ", " + found.getZ());
             }
-            return "Chunk " + chunk.x + ", " + chunk.z + " (bloco ausente)";
+            return Component.translatable("command.faction_control.flag_missing_block", chunk.x, chunk.z);
         }
-        return "Nenhuma bandeira registrada";
+        return Component.translatable("command.faction_control.no_flag");
     }
 
     private static int countOnlineMembers(MinecraftServer server, FactionObject faction) {
@@ -646,7 +839,7 @@ public final class FactionCommands {
         }
 
         source.sendSuccess(
-                () -> Component.literal("Faction Control recarregado de config/faction_control.json."),
+                () -> Component.translatable("command.faction_control.reloaded"),
                 true
         );
         return 1;
@@ -655,8 +848,7 @@ public final class FactionCommands {
     private static int showPlayMode(CommandSourceStack source) throws CommandSyntaxException {
         ServerPlayer player = requirePlayer(source);
         source.sendSuccess(
-                () -> Component.literal(PlayerPlayModeHelper.describeMode(player))
-                        .withStyle(ChatFormatting.AQUA),
+                () -> PlayerPlayModeHelper.describeMode(player).copy().withStyle(ChatFormatting.AQUA),
                 false
         );
         return 1;
@@ -677,13 +869,13 @@ public final class FactionCommands {
     private static int sendPlayModeResult(CommandSourceStack source, boolean playAsPlayer) {
         if (playAsPlayer) {
             source.sendSuccess(
-                    () -> Component.literal("Modo Jogador ATIVADO: regras de territorio e GameMode do mod se aplicam a voce.")
+                    () -> Component.translatable("command.faction_control.playmode_player")
                             .withStyle(ChatFormatting.GREEN),
                     true
             );
         } else {
             source.sendSuccess(
-                    () -> Component.literal("Modo Admin ATIVADO: bypass de territorio; GameMode nao e alterado pelo mod.")
+                    () -> Component.translatable("command.faction_control.playmode_admin")
                             .withStyle(ChatFormatting.GOLD),
                     true
             );
@@ -693,8 +885,11 @@ public final class FactionCommands {
 
     private static int showClickLogging(CommandSourceStack source) {
         source.sendSuccess(
-                () -> Component.literal("Logs de clique [FACTION CLICK / GAMEMODE]: "
-                                + FactionDebugSettings.describeClickLogging())
+                () -> Component.translatable(
+                                "command.faction_control.click_logging",
+                                Component.translatable(FactionDebugSettings.isClickLoggingEnabled()
+                                        ? "command.faction_control.logging_on"
+                                        : "command.faction_control.logging_off"))
                         .withStyle(ChatFormatting.AQUA),
                 false
         );
@@ -713,9 +908,11 @@ public final class FactionCommands {
 
     private static int sendClickLoggingResult(CommandSourceStack source, boolean enabled) {
         ChatFormatting color = enabled ? ChatFormatting.GREEN : ChatFormatting.GRAY;
-        String status = enabled ? "ATIVADOS" : "DESATIVADOS";
+        Component status = Component.translatable(enabled
+                ? "command.faction_control.logging_on"
+                : "command.faction_control.logging_off");
         source.sendSuccess(
-                () -> Component.literal("Logs de clique [FACTION CLICK / GAMEMODE]: " + status)
+                () -> Component.translatable("command.faction_control.click_logging", status)
                         .withStyle(color),
                 true
         );
@@ -743,5 +940,8 @@ public final class FactionCommands {
         }
         @Nullable GameProfile profile = server.getProfileCache().get(playerId).orElse(null);
         return profile != null ? profile.getName() : playerId.toString();
+    }
+
+    private record DeleteConfirmation(UUID factionId, long expiresAtMs) {
     }
 }

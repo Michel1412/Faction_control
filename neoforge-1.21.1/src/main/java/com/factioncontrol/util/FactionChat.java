@@ -22,53 +22,46 @@ public final class FactionChat {
                 .append(Component.literal("] ").withStyle(ChatFormatting.DARK_GRAY));
     }
 
-    public static MutableComponent factionMessage(FactionObject faction, String message) {
+    public static MutableComponent factionMessage(FactionObject faction, Component message) {
         return factionPrefix(faction)
-                .append(Component.literal(message)
-                        .withStyle(style -> style.withColor(TextColor.fromRgb(faction.getColor()))));
+                .append(message.copy().withStyle(style -> style.withColor(TextColor.fromRgb(faction.getColor()))));
     }
 
-    public static void sendSuccess(CommandSourceStack source, FactionObject faction, String message) {
+    public static void sendSuccess(CommandSourceStack source, FactionObject faction, Component message) {
         source.sendSuccess(() -> factionMessage(faction, message), false);
     }
 
-    public static void sendSuccess(ServerPlayer player, FactionObject faction, String message) {
+    public static void sendSuccess(ServerPlayer player, FactionObject faction, Component message) {
         player.sendSystemMessage(factionMessage(faction, message));
     }
 
-    public static void sendError(CommandSourceStack source, String message) {
-        source.sendFailure(Component.literal(message).withStyle(ChatFormatting.RED));
+    public static void sendError(CommandSourceStack source, Component message) {
+        source.sendFailure(message.copy().withStyle(ChatFormatting.RED));
     }
 
-    public static void sendError(ServerPlayer player, String message) {
-        player.sendSystemMessage(Component.literal(message).withStyle(ChatFormatting.RED));
+    public static void sendError(ServerPlayer player, Component message) {
+        player.sendSystemMessage(message.copy().withStyle(ChatFormatting.RED));
     }
 
     public static void sendAdminZoneActionBar(ServerPlayer player) {
         player.displayClientMessage(
-                Component.literal("Zona de Administradores")
+                Component.translatable("faction_control.chat.admin_zone")
                         .withStyle(ChatFormatting.BLUE),
                 true
         );
     }
 
-    public static void sendErrorActionBar(ServerPlayer player, String message) {
-        player.displayClientMessage(
-                Component.literal(message).withStyle(ChatFormatting.RED),
-                true
-        );
+    public static void sendErrorActionBar(ServerPlayer player, Component message) {
+        player.displayClientMessage(message.copy().withStyle(ChatFormatting.RED), true);
     }
 
-    public static void sendSuccessActionBar(ServerPlayer player, String message) {
-        player.displayClientMessage(
-                Component.literal(message).withStyle(ChatFormatting.GREEN),
-                true
-        );
+    public static void sendSuccessActionBar(ServerPlayer player, Component message) {
+        player.displayClientMessage(message.copy().withStyle(ChatFormatting.GREEN), true);
     }
 
     public static void sendSafezonePvpDeniedActionBar(ServerPlayer player) {
         player.displayClientMessage(
-                Component.literal("O PvP esta desativado nesta Zona Segura!")
+                Component.translatable("faction_control.chat.safezone_pvp")
                         .withStyle(ChatFormatting.RED),
                 true
         );
@@ -78,22 +71,21 @@ public final class FactionChat {
     private static final java.util.Map<java.util.UUID, Long> LAST_PROTECTED_MESSAGE_TICK = new java.util.concurrent.ConcurrentHashMap<>();
 
     public static void sendInviteMessage(ServerPlayer target, FactionObject faction, String inviterName) {
-        MutableComponent acceptButton = Component.literal("[ACEITAR]")
+        MutableComponent acceptButton = Component.translatable("faction_control.chat.accept")
                 .withStyle(style -> style
                         .withColor(ChatFormatting.GREEN)
                         .withBold(true)
                         .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/faction accept"))
                         .withHoverEvent(new HoverEvent(
                                 HoverEvent.Action.SHOW_TEXT,
-                                Component.literal("Clique para entrar na faccao")
+                                Component.translatable("faction_control.chat.accept_hover")
                         )));
 
         target.sendSystemMessage(
                 factionPrefix(faction)
-                        .append(Component.literal("Voce foi convidado por ")
+                        .append(Component.translatable("faction_control.chat.invited_by",
+                                        Component.literal(inviterName).withStyle(ChatFormatting.YELLOW))
                                 .withStyle(style -> style.withColor(TextColor.fromRgb(faction.getColor()))))
-                        .append(Component.literal(inviterName).withStyle(ChatFormatting.YELLOW))
-                        .append(Component.literal(". ").withStyle(style -> style.withColor(TextColor.fromRgb(faction.getColor()))))
                         .append(acceptButton)
         );
     }
@@ -102,16 +94,16 @@ public final class FactionChat {
         sendThrottledActionBar(
                 player,
                 LAST_PROTECTED_MESSAGE_TICK,
-                Component.literal("Territorio protegido por " + ownerName)
+                Component.translatable("faction_control.chat.protected_by", ownerName)
                         .withStyle(ChatFormatting.RED)
         );
     }
 
-    public static void sendProtectedContainerActionBar(ServerPlayer player, String ownerName) {
+    public static void sendProtectedContainerActionBar(ServerPlayer player, Component ownerName) {
         sendThrottledActionBar(
                 player,
                 LAST_PROTECTED_MESSAGE_TICK,
-                Component.literal("Containers sao indestrutiveis no territorio de " + ownerName)
+                Component.translatable("faction_control.chat.containers_protected", ownerName)
                         .withStyle(ChatFormatting.RED)
         );
     }

@@ -30,11 +30,11 @@ import java.util.List;
 import java.util.UUID;
 
 public class FactionUpgradeItem extends Item {
-    private static final Component TOOLTIP_DESCRIPTION = Component.literal(
-            "Vincule um chunk (Shift+Clique) e aplique na Bandeira para expandir o territorio."
+    private static final Component TOOLTIP_DESCRIPTION = Component.translatable(
+            "item.faction_control.faction_upgrade_item.tooltip"
     );
-    private static final Component TOOLTIP_NO_CHUNK = Component.literal(
-            "Nenhum chunk selecionado (Shift+Clique para configurar)"
+    private static final Component TOOLTIP_NO_CHUNK = Component.translatable(
+            "item.faction_control.faction_upgrade_item.no_chunk"
     );
 
     public FactionUpgradeItem(Properties properties) {
@@ -48,7 +48,7 @@ public class FactionUpgradeItem extends Item {
 
         if (hasSelectedChunk(stack)) {
             ChunkPos chunk = getSelectedChunk(stack);
-            tooltip.add(Component.literal("Chunk: [" + chunk.x + ", " + chunk.z + "]"));
+            tooltip.add(Component.translatable("item.faction_control.faction_upgrade_item.chunk", chunk.x, chunk.z));
         } else {
             tooltip.add(TOOLTIP_NO_CHUNK);
         }
@@ -103,7 +103,7 @@ public class FactionUpgradeItem extends Item {
         if (!TerritoryProtectionHelper.canRegisterChunkForUpgrade(chunkPos)) {
             FactionChat.sendErrorActionBar(
                     serverPlayer,
-                    "Este chunk e uma Zona de Administradores e nao pode ser registrado para upgrade."
+                    Component.translatable("faction_control.upgrade.admin_zone_bind")
             );
             return;
         }
@@ -111,7 +111,7 @@ public class FactionUpgradeItem extends Item {
         setSelectedChunk(stack, chunkPos);
         FactionChat.sendSuccessActionBar(
                 serverPlayer,
-                "Chunk selecionado: [" + chunkPos.x + ", " + chunkPos.z + "]"
+                Component.translatable("faction_control.upgrade.chunk_selected", chunkPos.x, chunkPos.z)
         );
     }
 
@@ -123,19 +123,19 @@ public class FactionUpgradeItem extends Item {
     ) {
         FactionObject faction = FlagHelper.resolveFactionAtFlag(level, flagPos);
         if (faction == null) {
-            FactionChat.sendError(player, "Esta bandeira nao esta vinculada a uma faccao.");
+            FactionChat.sendError(player, Component.translatable("faction_control.upgrade.unlinked_flag"));
             return InteractionResult.FAIL;
         }
 
         FactionManager manager = FactionManager.get(level);
 
         if (!faction.isLeader(player.getUUID())) {
-            FactionChat.sendError(player, "Apenas o Oficial da faccao pode aplicar upgrades.");
+            FactionChat.sendError(player, Component.translatable("faction_control.upgrade.not_official"));
             return InteractionResult.FAIL;
         }
 
         if (!hasSelectedChunk(stack)) {
-            FactionChat.sendErrorActionBar(player, "Configure um chunk no item antes (Shift+Clique).");
+            FactionChat.sendErrorActionBar(player, Component.translatable("faction_control.upgrade.need_chunk"));
             return InteractionResult.FAIL;
         }
 
@@ -145,23 +145,23 @@ public class FactionUpgradeItem extends Item {
         if (!TerritoryProtectionHelper.canRegisterChunkForUpgrade(selectedChunk)) {
             FactionChat.sendErrorActionBar(
                     player,
-                    "Este chunk e uma Zona de Administradores e nao pode ser claimado pela faccao."
+                    Component.translatable("faction_control.upgrade.admin_zone_claim")
             );
             return InteractionResult.FAIL;
         }
 
         if (manager.isChunkOwnedByFaction(factionId, selectedChunk)) {
-            FactionChat.sendErrorActionBar(player, "Este chunk ja pertence a sua faccao.");
+            FactionChat.sendErrorActionBar(player, Component.translatable("faction_control.upgrade.already_yours"));
             return InteractionResult.FAIL;
         }
 
         if (manager.isChunkClaimed(selectedChunk)) {
-            FactionChat.sendErrorActionBar(player, "Este chunk ja pertence a outra faccao.");
+            FactionChat.sendErrorActionBar(player, Component.translatable("faction_control.upgrade.other_faction"));
             return InteractionResult.FAIL;
         }
 
         if (!manager.isChunkAdjacentToFactionTerritory(factionId, selectedChunk)) {
-            FactionChat.sendErrorActionBar(player, "Esse chunk nao e adjacente ao territorio da sua Faccao!");
+            FactionChat.sendErrorActionBar(player, Component.translatable("faction_control.upgrade.not_adjacent"));
             return InteractionResult.FAIL;
         }
 
@@ -172,7 +172,7 @@ public class FactionUpgradeItem extends Item {
         stack.shrink(1);
         spawnSuccessParticles(level, flagPos);
         FactionChat.sendSuccess(player, faction,
-                "Territorio expandido! Chunk [" + selectedChunk.x + ", " + selectedChunk.z + "] claimado.");
+                Component.translatable("faction_control.upgrade.expanded", selectedChunk.x, selectedChunk.z));
         return InteractionResult.CONSUME;
     }
 

@@ -15,11 +15,12 @@ public final class ModCreativeTabs {
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> FACTION_CONTROL = CREATIVE_MODE_TABS.register(
             "faction_control",
             () -> CreativeModeTab.builder()
-                    .title(Component.literal("Faction Control"))
+                    .title(Component.translatable("itemGroup.faction_control.faction_control"))
                     .icon(() -> new ItemStack(ModItems.FLAG_BLOCK.get()))
                     .displayItems((parameters, output) -> {
                         output.accept(ModItems.FLAG_BLOCK.get());
                         output.accept(ModItems.FACTION_UPGRADE.get());
+                        output.accept(ModItems.FACTION_EXPAND.get());
                         output.accept(ModItems.RAID_CONTROLLER.get());
                     })
                     .build()

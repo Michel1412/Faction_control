@@ -3,7 +3,9 @@ package com.factioncontrol.util;
 import com.factioncontrol.config.FactionConfigManager;
 import com.factioncontrol.faction.FactionObject;
 import com.factioncontrol.faction.FactionManager;
+import com.factioncontrol.block.FlagBlock;
 import com.factioncontrol.registry.ModBlocks;
+import com.mojang.logging.LogUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
@@ -13,6 +15,10 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import org.slf4j.Logger;
 
 import org.jetbrains.annotations.Nullable;
 import java.util.Set;
@@ -20,6 +26,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class FlagHelper {
+    private static final Logger LOGGER = LogUtils.getLogger();
     private static final Set<Long> TERRITORY_CLEANUP_IN_PROGRESS = ConcurrentHashMap.newKeySet();
 
     private FlagHelper() {
@@ -39,7 +46,12 @@ public final class FlagHelper {
             return false;
         }
 
-        if (!level.setBlockAndUpdate(pos, ModBlocks.FLAG_BLOCK.get().defaultBlockState())) {
+        BlockState lower = ModBlocks.FLAG_BLOCK.get().defaultBlockState().setValue(FlagBlock.HALF, DoubleBlockHalf.LOWER);
+        if (!level.setBlockAndUpdate(pos, lower)) {
+            return false;
+        }
+        if (!level.setBlockAndUpdate(above, lower.setValue(FlagBlock.HALF, DoubleBlockHalf.UPPER))) {
+            level.removeBlock(pos, false);
             return false;
         }
 
@@ -52,6 +64,42 @@ public final class FlagHelper {
             manager.claimSingleChunk(faction.getFactionId(), chunkPos);
         });
         return true;
+    }
+
+    /**
+     * Flags saved before the upper half existed only occupy the anchor block.
+     * Fill the block above when it is still replaceable.
+     */
+    public static void ensureUpperHalves(MinecraftServer server) {
+        for (FactionObject faction : FactionConfigManager.getAllFactions()) {
+            BlockPos flagPos = faction.getFlagBlockPos();
+            if (flagPos == null) {
+                continue;
+            }
+            ServerLevel level = resolveFlagLevel(server, faction.getFlagDimension());
+            if (level == null) {
+                continue;
+            }
+            BlockState state = level.getBlockState(flagPos);
+            if (!state.is(ModBlocks.FLAG_BLOCK.get()) || state.getValue(FlagBlock.HALF) == DoubleBlockHalf.UPPER) {
+                continue;
+            }
+            BlockPos above = flagPos.above();
+            BlockState aboveState = level.getBlockState(above);
+            if (aboveState.is(ModBlocks.FLAG_BLOCK.get()) && aboveState.getValue(FlagBlock.HALF) == DoubleBlockHalf.UPPER) {
+                continue;
+            }
+            if (!aboveState.canBeReplaced()) {
+                LOGGER.warn(
+                        "Faction {} flag at {} is missing its upper half because {} is occupied",
+                        faction.getName(),
+                        flagPos,
+                        above
+                );
+                continue;
+            }
+            level.setBlock(above, state.setValue(FlagBlock.HALF, DoubleBlockHalf.UPPER), Block.UPDATE_ALL);
+        }
     }
 
     public static boolean hasActiveFlagInWorld(MinecraftServer server, FactionObject faction) {

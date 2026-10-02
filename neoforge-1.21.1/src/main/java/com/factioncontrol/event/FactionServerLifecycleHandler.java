@@ -4,6 +4,7 @@ import com.factioncontrol.FactionControlMod;
 import com.factioncontrol.config.FactionConfigManager;
 import com.factioncontrol.faction.FactionManager;
 import com.factioncontrol.network.ModNetwork;
+import com.factioncontrol.util.FlagHelper;
 import com.mojang.logging.LogUtils;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -35,6 +36,7 @@ public final class FactionServerLifecycleHandler {
 
     @SubscribeEvent
     public static void onServerStarted(ServerStartedEvent event) {
+        FlagHelper.ensureUpperHalves(event.getServer());
         FactionManager.markServerDataReady();
     }
 

@@ -22,6 +22,12 @@ public final class ModItems {
             () -> new FactionUpgradeItem(new Item.Properties().stacksTo(1))
     );
 
+    /** Same behavior as {@link #FACTION_UPGRADE}. Kept so 2.0.0 worlds still resolve the id. */
+    public static final DeferredItem<FactionUpgradeItem> FACTION_EXPAND = ITEMS.register(
+            "faction_expand_item",
+            () -> new FactionUpgradeItem(new Item.Properties().stacksTo(1))
+    );
+
     public static final DeferredItem<RaidControllerItem> RAID_CONTROLLER = ITEMS.register(
             "raid_controller_item",
             () -> new RaidControllerItem(new Item.Properties().stacksTo(1))

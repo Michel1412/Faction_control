@@ -20,9 +20,7 @@ import java.util.List;
 public class RaidControllerItem extends Item {
     private static final int USE_DURATION_TICKS = 72000;
 
-    private static final Component TOOLTIP = Component.literal(
-            "Apenas o Oficial: segure o clique direito em territorio inimigo por 60s para hackear a bandeira."
-    );
+    private static final Component TOOLTIP = Component.translatable("item.faction_control.raid_controller_item.tooltip");
 
     public RaidControllerItem(Properties properties) {
         super(properties);
@@ -51,7 +49,7 @@ public class RaidControllerItem extends Item {
         FactionObject faction = FactionManager.get(serverPlayer.serverLevel())
                 .getFactionOfMember(serverPlayer.getUUID());
         if (faction == null || !faction.isLeader(serverPlayer.getUUID())) {
-            FactionChat.sendErrorActionBar(serverPlayer, "Apenas o Oficial da faccao pode usar o Controle de Hack.");
+            FactionChat.sendErrorActionBar(serverPlayer, Component.translatable("faction_control.raid.official_only"));
             return InteractionResultHolder.fail(serverPlayer.getItemInHand(hand));
         }
 

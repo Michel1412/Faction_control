@@ -1,7 +1,10 @@
 {
   "variants": {
-    "": {
+    "half=lower": {
       "model": "faction_control:block/flag_block"
+    },
+    "half=upper": {
+      "model": "faction_control:block/flag_block_upper"
     }
   }
 }

@@ -2,6 +2,7 @@ package com.factioncontrol.util;
 
 import com.factioncontrol.config.FactionConfigManager;
 import com.factioncontrol.faction.FactionObject;
+import net.minecraft.network.chat.Component;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.BlockGetter;
@@ -17,8 +18,6 @@ import java.util.UUID;
  * FTB-style territory permission checks against {@link FactionConfigManager} map caches.
  */
 public final class TerritoryProtectionHelper {
-    public static final String ADMIN_OWNER_NAME = "Administradores";
-
     public enum FactionRole {
         OFFICIAL,
         MEMBER,
@@ -223,18 +222,17 @@ public final class TerritoryProtectionHelper {
         return !isAdminChunk(chunkPos);
     }
 
-    @Nullable
-    public static String describeChunkOwner(ChunkPos chunkPos) {
+    public static Component describeChunkOwner(ChunkPos chunkPos) {
         if (FactionConfigManager.isAdminChunk(chunkPos)) {
-            return ADMIN_OWNER_NAME;
+            return Component.translatable("faction_control.owner.admins");
         }
 
         UUID ownerId = FactionConfigManager.getChunkOwner(chunkPos);
         if (ownerId == null) {
-            return "Zona Livre";
+            return Component.translatable("faction_control.owner.wilderness");
         }
 
         FactionObject faction = FactionConfigManager.getFaction(ownerId);
-        return faction != null ? faction.getName() : ownerId.toString();
+        return Component.literal(faction != null ? faction.getName() : ownerId.toString());
     }
 }

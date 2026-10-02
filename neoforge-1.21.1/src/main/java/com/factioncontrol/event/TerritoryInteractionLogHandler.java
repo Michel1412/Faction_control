@@ -89,7 +89,7 @@ public final class TerritoryInteractionLogHandler {
                         + " | GameMode Esperado: " + expectedMode.getName().toUpperCase()
                         + " | Bloco Pos: " + pos
                         + " | Chunk: " + chunkPos
-                        + " | Dono do Chunk: " + TerritoryProtectionHelper.describeChunkOwner(chunkPos)
+                        + " | Dono do Chunk: " + TerritoryProtectionHelper.describeChunkOwner(chunkPos).getString()
                         + " | Papel no Chunk: " + role
                         + " | Faction do Player: " + playerFactionId
                         + " | Permitido: " + permitted

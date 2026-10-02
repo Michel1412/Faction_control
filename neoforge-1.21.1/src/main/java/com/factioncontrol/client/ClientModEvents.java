@@ -15,7 +15,8 @@ public final class ClientModEvents {
     public static void registerItemColors(RegisterColorHandlersEvent.Item event) {
         event.register(
                 (stack, tintIndex) -> tintIndex == 0 ? NO_TINT : -1,
-                ModItems.FACTION_UPGRADE.get()
+                ModItems.FACTION_UPGRADE.get(),
+                ModItems.FACTION_EXPAND.get()
         );
         event.register(
                 (stack, tintIndex) -> tintIndex == 0 ? NO_TINT : -1,

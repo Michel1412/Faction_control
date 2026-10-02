@@ -1,5 +1,6 @@
 package com.factioncontrol.util;
 
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
@@ -35,12 +36,12 @@ public final class PlayerPlayModeHelper {
         return FactionPlayerData.toggleFlag(player, FactionPlayerData.NBT_PLAY_AS_PLAYER);
     }
 
-    public static String describeMode(ServerPlayer player) {
+    public static Component describeMode(ServerPlayer player) {
         if (!player.hasPermissions(2)) {
-            return "Jogador (regras de territorio ativas)";
+            return Component.translatable("faction_control.playmode.player_default");
         }
-        return getPlayAsPlayer(player)
-                ? "Modo Jogador (regras de territorio ativas)"
-                : "Modo Admin (bypass de territorio)";
+        return Component.translatable(getPlayAsPlayer(player)
+                ? "faction_control.playmode.player"
+                : "faction_control.playmode.admin");
     }
 }

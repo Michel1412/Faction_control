@@ -27,8 +27,7 @@ public final class WirelessRaidHackManager {
     /** Short refresh window; reapplied every tick only on the hacker. */
     private static final int HACKER_SLOWNESS_DURATION_TICKS = 40;
     private static final int HACKER_SLOWNESS_AMPLIFIER = 9;
-    private static final String LEADER_ALERT =
-            "SISTEMAS EXPOSTOS: Voce esta sendo hackeado via wireless!";
+    private static final Component LEADER_ALERT = Component.translatable("faction_control.raid.leader_alert");
 
     private static final Map<UUID, HackSession> ACTIVE_SESSIONS = new ConcurrentHashMap<>();
 
@@ -106,7 +105,7 @@ public final class WirelessRaidHackManager {
         FactionManager manager = FactionManager.get(level);
         FactionObject attackerFaction = manager.getFactionOfMember(player.getUUID());
         if (attackerFaction == null || !attackerFaction.isLeader(player.getUUID())) {
-            FactionChat.sendErrorActionBar(player, "Apenas o Oficial da faccao pode usar o Controle de Hack.");
+            FactionChat.sendErrorActionBar(player, Component.translatable("faction_control.raid.official_only"));
             return null;
         }
 
@@ -134,11 +133,11 @@ public final class WirelessRaidHackManager {
         FactionObject targetFaction = manager.getFaction(session.targetFactionId());
         if (targetFaction != null) {
             broadcastToFaction(level, targetFaction,
-                    "Sua bandeira foi hackeada! O territorio esta exposto a invasores.");
+                    Component.translatable("faction_control.raid.hacked"));
         }
 
         player.displayClientMessage(
-                Component.literal("Hack concluido! Territorio inimigo desprotegido.")
+                Component.translatable("faction_control.raid.complete")
                         .withStyle(ChatFormatting.GREEN),
                 true
         );
@@ -155,7 +154,7 @@ public final class WirelessRaidHackManager {
     private static void sendProgressActionBar(ServerPlayer player, HackSession session) {
         int percent = Math.min(100, (int) ((session.ticksElapsed() * 100L) / HACK_DURATION_TICKS));
         player.displayClientMessage(
-                Component.literal("Hackeando... " + percent + "%")
+                Component.translatable("faction_control.raid.progress", percent)
                         .withStyle(ChatFormatting.GOLD),
                 true
         );
@@ -171,44 +170,44 @@ public final class WirelessRaidHackManager {
         if (percent >= 30 && !session.milestone30Sent()) {
             session.setMilestone30Sent(true);
             broadcastHackAlertChat(level, targetFaction,
-                    "ALERTA: Sua faccao esta sendo hackeada! Progresso: 30%");
+                    Component.translatable("faction_control.raid.alert", 30));
         }
         if (percent >= 50 && !session.milestone50Sent()) {
             session.setMilestone50Sent(true);
             broadcastHackAlertChat(level, targetFaction,
-                    "ALERTA: Sua faccao esta sendo hackeada! Progresso: 50%");
+                    Component.translatable("faction_control.raid.alert", 50));
         }
         if (percent >= 80 && !session.milestone80Sent()) {
             session.setMilestone80Sent(true);
             broadcastHackAlertChat(level, targetFaction,
-                    "ALERTA: Sua faccao esta sendo hackeada! Progresso: 80%");
+                    Component.translatable("faction_control.raid.alert", 80));
         }
         if (percent >= 90 && !session.milestone90Sent()) {
             session.setMilestone90Sent(true);
             broadcastHackAlertScreen(level, targetFaction,
-                    "PERIGO! Hack em 90% - Territorio quase comprometido!");
+                    Component.translatable("faction_control.raid.danger"));
         }
     }
 
-    private static void broadcastHackAlertChat(ServerLevel level, FactionObject faction, String message) {
+    private static void broadcastHackAlertChat(ServerLevel level, FactionObject faction, Component message) {
         for (UUID memberId : faction.getMembers()) {
             ServerPlayer member = level.getServer().getPlayerList().getPlayer(memberId);
             if (member != null) {
                 member.sendSystemMessage(
                         FactionChat.factionPrefix(faction)
-                                .append(Component.literal(message)
+                                .append(message.copy()
                                         .withStyle(ChatFormatting.RED, ChatFormatting.BOLD))
                 );
             }
         }
     }
 
-    private static void broadcastHackAlertScreen(ServerLevel level, FactionObject faction, String message) {
+    private static void broadcastHackAlertScreen(ServerLevel level, FactionObject faction, Component message) {
         for (UUID memberId : faction.getMembers()) {
             ServerPlayer member = level.getServer().getPlayerList().getPlayer(memberId);
             if (member != null) {
                 member.displayClientMessage(
-                        Component.literal(message).withStyle(ChatFormatting.RED, ChatFormatting.BOLD),
+                        message.copy().withStyle(ChatFormatting.RED, ChatFormatting.BOLD),
                         true
                 );
             }
@@ -228,7 +227,7 @@ public final class WirelessRaidHackManager {
         session.setLeaderAlertSent(true);
         leader.playNotifySound(SoundEvents.RAID_HORN.value(), SoundSource.HOSTILE, 1.0F, 0.85F);
         FactionChat.sendErrorActionBar(leader, LEADER_ALERT);
-        leader.sendSystemMessage(Component.literal(LEADER_ALERT).withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+        leader.sendSystemMessage(LEADER_ALERT.copy().withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
     }
 
     /**
@@ -253,7 +252,7 @@ public final class WirelessRaidHackManager {
         }
     }
 
-    private static void broadcastToFaction(ServerLevel level, FactionObject faction, String message) {
+    private static void broadcastToFaction(ServerLevel level, FactionObject faction, Component message) {
         for (UUID memberId : faction.getMembers()) {
             ServerPlayer member = level.getServer().getPlayerList().getPlayer(memberId);
             if (member != null) {
