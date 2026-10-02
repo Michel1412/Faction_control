@@ -20,7 +20,7 @@ Pack format **15** (`src/main/resources/pack.mcmeta`).
 
 `data/faction_control/loot_tables/blocks/flag_block.json` — vanilla `minecraft:block` loot with `survives_explosion`.
 
-On 1.21.1 the folder name is still `loot_tables` (the rename to `loot_table` is 1.21.2+).
+On 1.21.1 the folder is already `loot_table` (singular). The plural name is only correct for this 1.20.1 tree.
 
 ## Client render
 

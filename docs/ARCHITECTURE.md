@@ -1,6 +1,6 @@
 # Faction Control — Arquitetura
 
-Versão de produto: **1.4.1**  
+Versão de produto Forge 1.20.1: **1.4.1**. NeoForge 1.21.1: **2.1.0**.  
 Versões de Minecraft: ver [architecture/architecture.yml](architecture/architecture.yml)
 
 Este documento descreve **regras de domínio** (camadas, mapas, gate, prioridade). Nomes de classe Forge/NeoForge ficam em `docs/implementations/<mc>/`.

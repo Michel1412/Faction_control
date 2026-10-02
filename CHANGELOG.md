@@ -2,6 +2,23 @@
 
 All notable changes to Faction Control are documented in this file.
 
+## [2.1.0] — 2026-10-02 — NeoForge 1.21.1
+
+O módulo Forge 1.20.1 continua em **1.4.1**. Esta versão é só do `neoforge-1.21.1/`.
+
+### Recuperado do jar publicado `faction_control-1.21.1-2.0.0.jar`
+
+- Comandos de membro/Oficial: `/faction leave`, `/faction kick <player>`, `/faction members`, `/faction delete` e `/faction confirm` (confirmação de 30 segundos, só na memória).
+- Item `faction_expand_item` (mesmo comportamento de `faction_upgrade_item`), para mundos que já tinham esse id.
+
+### Corrigido
+
+- Loot da bandeira em `data/faction_control/loot_table/` (singular, data pack 1.21.1). Só a metade de baixo dropa o item.
+- Mensagens de jogo passam por `Component.translatable`, com `en_us.json` e `pt_br.json`. A aba criativa usa `itemGroup.faction_control.faction_control`.
+- Dureza da bandeira deixou de ser -1. Oficial (e OP fora do modo jogador) consegue minerar; quem a policy recusa fica com velocidade de quebra 0. Resistência a explosão continua a de bedrock.
+- A bandeira ocupa dois blocos (`half=lower` / `half=upper`). A hitbox de cada metade fica dentro do bloco (o modelo ainda desenha a ponta que passa de x=16). Bandeiras antigas ganham a metade de cima no start do servidor, se o bloco acima estiver livre.
+- Notas em `docs/` que diziam que `loot_tables` só viraria `loot_table` no 1.21.2.
+
 ## [1.4.1] — 2026-08-18
 
 ### Corrigido

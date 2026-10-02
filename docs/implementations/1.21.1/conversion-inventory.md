@@ -125,7 +125,7 @@ Each row is one current production file.
 |--------------|-----|-------------|
 | `models/item/flag_block.json` | **ADAPT** | `forge:separate_transforms` → `neoforge:separate_transforms` |
 | other models / textures / lang | **COPY** | 1.21.1 still uses `models/item` |
-| `loot_tables/blocks/flag_block.json` | **COPY** | folder still `loot_tables` on 1.21.1 |
+| `loot_table/blocks/flag_block.json` | **ADAPT** | 1.21.1 already uses singular `loot_table` (the 1.21.2 note was wrong) |
 | `blockstates/flag_block.json` | **COPY** | add `render_type: cutout` on the **block model** |
 
 ## Tools (not in the mod JAR)
@@ -152,7 +152,7 @@ After each step: `runServer` smoke — load JSON, `/faction create` as OP, place
 
 ## Dual-support rules after the port
 
-- Same `mod_version` line (e.g. 1.4.1) on both artifacts unless a version-only hotfix is required.
+- Forge 1.20.1 stays on `mod_version` 1.4.1. NeoForge 1.21.1 is **2.1.0** (recovered from the published 2.0.0 jar, then patched).
 - JSON schema changes land in **both** modules in the same release.
 - Domain bugs: patch `TerritoryProtectionHelper` / `FactionObject` in both trees (or extract `common` later).
 - Do not edit 1.20.1 Forge APIs to “look like” NeoForge.

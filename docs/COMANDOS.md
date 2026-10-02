@@ -1,6 +1,6 @@
 # Faction Control — Referência de Comandos
 
-Versão do mod: **1.4.1**  
+Versão Forge 1.20.1: **1.4.1**. Versão NeoForge 1.21.1: **2.1.0**.  
 Prefixo base: `/faction`
 
 Todos os dados de facções, chunks claimados, bandeiras e safezones ficam em `config/faction_control.json`.
@@ -45,7 +45,7 @@ Posiciona a **bandeira** no bloco onde o Oficial está e claima o chunk atual.
 | **Uso** | `/faction set flag` |
 | **Dimensão** | Overworld apenas |
 | **Pré-requisitos** | Facção sem bandeira ativa no mundo; bloco na posição do player substituível (ar/espaço) |
-| **Efeito** | Spawna `flag_block` (indestrutível exceto Oficial/OP em Modo Admin); salva `flag_position` no JSON; claima o chunk da bandeira |
+| **Efeito** | Spawna `flag_block` em dois blocos de altura; o Oficial (e OP em Modo Admin) consegue quebrar; invasor não. Salva `flag_position` no JSON; claima o chunk da bandeira |
 | **Erros comuns** | Não está em facção; não é Oficial; bandeira já ativa; posição bloqueada |
 
 ### `/faction invite <player>`
@@ -79,11 +79,28 @@ Aceita um convite pendente e entra na facção que convidou.
 | **Pré-requisitos** | Convite pendente e não expirado; jogador sem facção |
 | **Alternativa** | Clicar **[ACEITAR]** na mensagem de convite no chat |
 
+### `/faction leave` (NeoForge 1.21.1)
+
+Membro sai da facção. O Oficial não pode sair: precisa transferir a liderança antes.
+
+### `/faction kick <player>` (NeoForge 1.21.1)
+
+Oficial expulsa um membro pelo nome (cache do servidor). Não expulsa a si mesmo.
+
+### `/faction members` (NeoForge 1.21.1)
+
+Lista os membros da própria facção, com Oficial e online/offline.
+
+### `/faction delete` e `/faction confirm` (NeoForge 1.21.1)
+
+O Oficial pede a exclusão e confirma em até **30 segundos**. Some a bandeira, os claims e a facção. A confirmação não sobrevive a restart.
+
 **Itens relacionados (não são comandos):**
 
 | Item | Quem usa | Função |
 |------|----------|--------|
 | `faction_upgrade_item` | **Oficial** | Shift+Clique vincula chunk; clique na bandeira expande território (chunk adjacente) |
+| `faction_expand_item` | **Oficial** | Mesmo uso do upgrade. Id extra recuperado do jar 2.0.0 (só NeoForge 1.21.1) |
 | `raid_controller_item` | Oficial da facção | Hack wireless 60s dentro de território inimigo → estado `RAIDED` |
 
 **Alertas durante o hack wireless** (membros online da facção atacada):
