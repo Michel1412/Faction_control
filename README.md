@@ -89,7 +89,7 @@ Requirements: **Java 17**, Gradle wrapper included.
 ./gradlew build
 ```
 
-Output JAR: `build/libs/faction_control-<version>.jar`
+Output JAR: `build/libs/faction_control-1.20.1-<version>.jar`
 
 **1.21.1 (NeoForge)** is a separate project. From `neoforge-1.21.1/` (Java 21):
 
@@ -109,4 +109,8 @@ Development client (1.20.1):
 
 ## License
 
-All Rights Reserved — see `gradle.properties` (`mod_license`).
+Copyright (c) 2024-2026 Michel1412 / RN Team. All Rights Reserved.
+
+Redistribution and modification without permission are not allowed.
+
+The full notice is in `LICENSE`. Both modules declare `license = All Rights Reserved` through `mod_license` in `gradle.properties` and `neoforge-1.21.1/gradle.properties`, expanded into `mods.toml` and `neoforge.mods.toml`.

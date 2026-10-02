@@ -1,5 +1,6 @@
 modLoader="javafml"
 loaderVersion="${loader_version_range}"
+# All Rights Reserved. See LICENSE at the repository root.
 license="${mod_license}"
 
 [[mods]]

@@ -18,7 +18,7 @@ cd neoforge-1.21.1
 gradlew.bat build
 ```
 
-Output JAR: `neoforge-1.21.1/build/libs/faction_control-1.21.1-1.4.1.jar`
+Output JAR: `neoforge-1.21.1/build/libs/faction_control-1.21.1-<version>.jar`
 
 Dev server:
 
@@ -29,3 +29,9 @@ gradlew.bat runServer
 Do **not** run this module with the root `gradlew` (ForgeGradle 6 / Gradle 8.8).
 
 API mapping: [docs/implementations/1.21.1/](../docs/implementations/1.21.1/).
+
+## License
+
+Copyright (c) 2024-2026 Michel1412 / RN Team. All Rights Reserved.
+
+Redistribution and modification without permission are not allowed. See [../LICENSE](../LICENSE). `neoforge.mods.toml` expands `license` from `mod_license` in `gradle.properties`.
